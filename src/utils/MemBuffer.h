@@ -45,6 +45,7 @@ class MemBuffer {
     void consume(size_t len);
 
     const char* data() const { return data_ + begin; }
+    char* data() { return data_ + begin; }
     std::string_view view() const { return {data(), size()}; }
 
     template <std::integral T>

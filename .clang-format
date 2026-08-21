@@ -2,7 +2,7 @@
 # Base Style
 BasedOnStyle: Chromium
 Language: Cpp
-Standard: c++23
+Standard: Latest
 
 # Indentation Controls
 IndentWidth: 4                  

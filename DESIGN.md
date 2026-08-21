@@ -15,6 +15,33 @@ struct Packet{
 }
 ```
 
+### Message Structs 
+
+These are structs derived from `Packet` and are used to transfer actual data 
+
+```c++ 
+struct Message {
+    string username;
+    string message;
+}
+
+struct Request {
+    Request req_type;
+}
+
+struct FieldReq {
+    Request req_type;
+    string field;
+}
+
+struct UserList {
+    vector<string> users;
+}
+```
+
+
+
+
 ## Chat Interface
 
 ## Repo structure

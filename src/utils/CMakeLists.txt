@@ -1,5 +1,7 @@
 add_library(utils STATIC
     MemBuffer.cpp
+    Packet.cpp
+    NetworkHandler.cpp
 )
 
 target_include_directories(utils

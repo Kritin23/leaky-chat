@@ -1,7 +1,11 @@
-#include <iostream> 
-#include <string>
+#pragma once
+
 #include "Packet.hh"
 #include "MemBuffer.h"
+
+#include <iostream> 
+#include <string>
+#include <memory>
 
 class NetworkHandler {
 
@@ -19,5 +23,5 @@ public:
 
     int connect();
     int sendPacket(Packet& packet);
-    Packet receivePacket();
+    std::unique_ptr<Packet> receivePacket();
 };

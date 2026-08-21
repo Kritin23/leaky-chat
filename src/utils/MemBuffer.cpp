@@ -55,8 +55,8 @@ size_t MemBuffer::read(void* dest, size_t len) {
     size_t bytes_to_read = (std::min)(len, size());
     if (bytes_to_read > 0) {
         std::memcpy(dest, data_ + begin, bytes_to_read);
-        begin += bytes_to_read;
-        consume(bytes_to_read);
+        // begin += bytes_to_read; -> // I guess this is redundant and logically incorrect?
+        consume(bytes_to_read); 
     }
     return bytes_to_read;
 }

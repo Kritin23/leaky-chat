@@ -4,6 +4,25 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <memory>
+
+int NetworkHandler::sendPacket(Packet& packet) {
+    if (!mConnected) {
+        std::cerr << "Not connected to server." << std::endl;
+        return -1;
+    }
+
+    MemBuffer buffer;
+    packet.serialise(buffer);
+
+    ssize_t bytes_sent = send(mSocket, buffer.data(), buffer.size(), 0);
+    if (bytes_sent < 0) {
+        std::cerr << "Failed to send packet." << std::endl;
+        return -1;
+    }
+
+    return 0;
+}
 
 int NetworkHandler::connect() {
     if (!mInitialized) {
@@ -33,54 +52,36 @@ int NetworkHandler::connect() {
     return 0;
 }
 
-int NetworkHandler::sendPacket(Packet& packet) {
-    if (!mConnected) {
-        std::cerr << "Not connected to server." << std::endl;
-        return -1;
-    }
-
-    MemBuffer buffer;
-    packet.serialise(buffer);
-
-    ssize_t bytes_sent = send(mSocket, buffer.data(), buffer.size(), 0);
-    if (bytes_sent < 0) {
-        std::cerr << "Failed to send packet." << std::endl;
-        return -1;
-    }
-
-    return 0;
-}
-
-Packet getPacket(PacketType packetType, MemBuffer& buffer) {
-    Packet packet;
+std::unique_ptr<Packet> getPacket(PacketType packetType, MemBuffer& buffer) {
     switch (packetType) {
-        case PacketType::MESSAGE:
-            // we will iclude a class, call it MessagePacket
-            // MessagePacket messagePacket; 
-            // messagePacket.deserialise(buffer);
-            // packet = messagePacket;
-            break;
-        default:
+        case PacketType::MESSAGE: {
+            auto messagePacket = std::make_unique<MessagePacket>();
+            messagePacket->deserialise(buffer);
+            return messagePacket; // Implicitly converts to unique_ptr<Packet>
+        }
+        default: {
             std::cerr << "Unknown packet type received." << std::endl;
-            break;
+            auto errorPacket = std::make_unique<Packet>();
+            errorPacket->mPacketType = PacketType::ERROR;
+            return errorPacket;
+        }
     }
-    return packet;
 }
 
-Packet NetworkHandler::receivePacket() {
+std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     if (!mConnected) {
         std::cerr << "Not connected to server." << std::endl;
-        return Packet();
+        return std::make_unique<Packet>();
     }
 
     ssize_t bytes_received = recv(mSocket, mRecvBuffer.data(), mRecvBuffer.capacity(), 0);
     if (bytes_received < 0) {
         std::cerr << "Failed to receive packet." << std::endl;
-        return Packet();
+        return std::make_unique<Packet>();
     }
     PacketType packetType;
     packetType = static_cast<PacketType>(mRecvBuffer.view()[0]);
-    Packet packet = getPacket(packetType, mRecvBuffer);
+    std::unique_ptr<Packet> packet = getPacket(packetType, mRecvBuffer);
     return packet;
 }
 

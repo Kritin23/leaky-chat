@@ -1,0 +1,50 @@
+---
+# Base Style
+BasedOnStyle: Chromium
+Language: Cpp
+Standard: c++20
+
+# Indentation Controls
+IndentWidth: 4                  
+ContinuationIndentWidth: 4      
+AccessModifierOffset: -2
+IndentAccessModifiers: false
+IndentPPDirectives: None
+NamespaceIndentation: None
+
+TabWidth: 4
+UseTab: Never
+
+# Alignment & Spacing
+AlignAfterOpenBracket: Align
+AlignConsecutiveAssignments: None
+AlignConsecutiveDeclarations: None
+AlignConsecutiveMacros: Consecutive
+AlignEscapedNewlines: Left
+AlignOperands: Align
+
+# Pointer & Reference Alignment
+PointerAlignment: Left          # Foo* bar instead of Foo *bar
+
+# Line Breaking & Wrapping
+ColumnLimit: 80
+AllowShortBlocksOnASingleLine: Never
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortLambdasOnASingleLine: Inline
+
+# Bracing
+BreakBeforeBraces: Attach
+AllowAllParametersOfDeclarationOnNextLine: false
+
+# Clean Diff & Modern Formatting Options
+BinPackArguments: false         # 1 parameter per line when wrapped
+BinPackParameters: false
+FixNamespaceComments: true
+IncludeBlocks: Regroup
+SortIncludes: CaseSensitive
+
+# Constructor Initialization
+BreakConstructorInitializers: BeforeColon
+ConstructorInitializerIndentWidth: 4

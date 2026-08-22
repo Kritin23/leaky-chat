@@ -5,6 +5,7 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 class MemBuffer {
   private:
@@ -34,13 +35,24 @@ class MemBuffer {
     void write_bytes(const void* src, size_t len);
 
     template <std::integral T>
-        requires (!std::is_same_v<T, bool>)
+        requires(!std::is_same_v<T, bool>)
     MemBuffer& operator<<(T val) {
         write_bytes(&val, sizeof(T));
         return *this;
     }
 
+    template <std::integral T>
+        requires(!std::is_same_v<T, bool>)
+    MemBuffer& operator<<(std::vector<T> vec) {
+        *this << vec.size();
+        for (const auto& val : vec) {
+            *this << val;
+        }
+        return *this;
+    }
+
     MemBuffer& operator<<(std::string_view sv);
+    MemBuffer& operator<<(std::vector<std::string> vec);
 
     void consume(size_t len);
 
@@ -49,13 +61,25 @@ class MemBuffer {
     std::string_view view() const { return {data(), size()}; }
 
     template <std::integral T>
-        requires (!std::is_same_v<T, bool>) 
+        requires(!std::is_same_v<T, bool>)
     MemBuffer& operator>>(T& val) {
         read(&val, sizeof(T));
         return *this;
     }
+    template <std::integral T>
+        requires(!std::is_same_v<T, bool>)
+    MemBuffer& operator>>(std::vector<T>& vec) {
+        size_t vecSize;
+        *this >> vecSize;
+        vec.resize(vecSize);
+        for (auto& val : vec) {
+            *this >> val;
+        }
+        return *this;
+    }
 
     MemBuffer& operator>>(std::string& str);
+    MemBuffer& operator>>(std::vector<std::string>& vec);
 
     size_t read(void* dest, size_t len);
 };

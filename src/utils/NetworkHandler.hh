@@ -1,15 +1,14 @@
 #pragma once
 
-#include "Packet.hh"
-#include "MemBuffer.h"
-
-#include <iostream> 
-#include <string>
+#include <iostream>
 #include <memory>
+#include <string>
+
+#include "MemBuffer.h"
+#include "Packet.hh"
 
 class NetworkHandler {
-
-private:
+  private:
     std::string mHost;
     int mPort;
     int mSocket = -1;
@@ -17,8 +16,9 @@ private:
     int mConnected = false;
     MemBuffer mRecvBuffer;
 
-public:
-    NetworkHandler(std::string host, int port) : mHost(host), mPort(port), mInitialized(true) {}
+  public:
+    NetworkHandler(std::string host, int port)
+        : mHost(host), mPort(port), mInitialized(true) {}
     NetworkHandler() : mHost("localhost"), mPort(8080), mInitialized(true) {}
 
     int connect();

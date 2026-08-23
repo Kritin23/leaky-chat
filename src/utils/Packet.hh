@@ -98,7 +98,7 @@ class ConnectionSetupPacket : public Packet {
         mPacketType = PacketType::CONNECTION_SETUP;
     }
     ConnectionSetupPacket() { mPacketType = PacketType::CONNECTION_SETUP; }
-    void serialise(MemBuffer& ptr) override;
+    void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
     const std::string& getUsername() const { return mUsername; }
 };

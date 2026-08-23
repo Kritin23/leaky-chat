@@ -98,7 +98,7 @@ void UserListPacket::deserialise(MemBuffer& ptr) {
     ptr >> mUserList;
 }
 
-void ConnectionSetupPacket::serialise(MemBuffer& ptr) {
+void ConnectionSetupPacket::serialise(MemBuffer& ptr) const {
     ptr << (uint8_t)mPacketType;
     ptr << mUsername;
 }

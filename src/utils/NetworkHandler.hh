@@ -32,4 +32,5 @@ class NetworkHandler {
         mConnected = true;
         return 0;
     }
+    int getFd() const { return mSocket; }
 };

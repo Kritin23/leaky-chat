@@ -8,7 +8,7 @@
 
 #include "MemBuffer.h"
 
-int NetworkHandler::sendPacket(Packet& packet) {
+int NetworkHandler::sendPacket(const Packet& packet) {
     if (!mConnected) {
         std::cerr << "Not connected to server." << std::endl;
         return -1;

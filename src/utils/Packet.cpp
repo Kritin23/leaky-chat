@@ -42,7 +42,7 @@ std::unique_ptr<Packet> getPacketFactory(MemBuffer& buffer) {
     }
 }
 
-void MessagePacket::serialise(MemBuffer& ptr) {
+void MessagePacket::serialise(MemBuffer& ptr) const {
     ptr << (uint8_t)mPacketType;
     ptr << mUsername;
     ptr << mMessage;
@@ -56,7 +56,7 @@ void MessagePacket::deserialise(MemBuffer& ptr) {
     ptr >> mMessage;
 }
 
-void RequestPacket::serialise(MemBuffer& ptr) {
+void RequestPacket::serialise(MemBuffer& ptr) const {
     ptr << (uint8_t)mPacketType;
     ptr << (uint8_t)mRequestType;
 }
@@ -70,7 +70,7 @@ void RequestPacket::deserialise(MemBuffer& ptr) {
     mRequestType = requestType;
 }
 
-void FieldReqPacket::serialise(MemBuffer& ptr) {
+void FieldReqPacket::serialise(MemBuffer& ptr) const {
     ptr << (uint8_t)mPacketType;
     ptr << (uint8_t)mRequestType;
     ptr << mField;
@@ -86,7 +86,7 @@ void FieldReqPacket::deserialise(MemBuffer& ptr) {
     ptr >> mField;
 }
 
-void UserListPacket::serialise(MemBuffer& ptr) {
+void UserListPacket::serialise(MemBuffer& ptr) const {
     ptr << (uint8_t)mPacketType;
     ptr << mUserList;
 }

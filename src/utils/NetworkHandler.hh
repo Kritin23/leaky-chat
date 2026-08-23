@@ -22,6 +22,7 @@ class NetworkHandler {
     NetworkHandler() : mHost("localhost"), mPort(8080), mInitialized(true) {}
 
     int connect();
-    int sendPacket(Packet& packet);
+    int getFd() const { return mSocket; }
+    int sendPacket(const Packet& packet);
     std::unique_ptr<Packet> receivePacket();
 };

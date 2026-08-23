@@ -27,7 +27,7 @@ class Packet {
     // these take MemBuffer instead of void* because we don't want the data and
     // MemBuffer state(begin,end,capacity) to be in need of being updated
     // separately
-    virtual void serialise(MemBuffer& ptr) {
+    virtual void serialise(MemBuffer& ptr) const {
     };  // must use write_bytes interface of MemBuffer
     virtual void deserialise(MemBuffer& ptr);
     virtual ~Packet() = default;
@@ -43,7 +43,7 @@ class MessagePacket : public Packet {
         mPacketType = PacketType::MESSAGE;
     }
     MessagePacket() { mPacketType = PacketType::MESSAGE; }
-    void serialise(MemBuffer& ptr) override;
+    void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
     std::string getUsername() const { return mUsername; }
     std::string getMessage() const { return mMessage; }
@@ -57,7 +57,7 @@ class RequestPacket : public Packet {
         mPacketType = PacketType::REQUEST;
     }
     RequestPacket() { mPacketType = PacketType::REQUEST; }
-    void serialise(MemBuffer& ptr) override;
+    void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
 };
 
@@ -71,7 +71,7 @@ class FieldReqPacket : public Packet {
         mPacketType = PacketType::FIELD_REQ;
     }
     FieldReqPacket() { mPacketType = PacketType::FIELD_REQ; }
-    void serialise(MemBuffer& ptr) override;
+    void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
 };
 
@@ -84,7 +84,7 @@ class UserListPacket : public Packet {
         mPacketType = PacketType::USER_LIST;
     }
     UserListPacket() { mPacketType = PacketType::USER_LIST; }
-    void serialise(MemBuffer& ptr) override;
+    void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
     const std::vector<std::string>& getUserList() const { return mUserList; }
 };

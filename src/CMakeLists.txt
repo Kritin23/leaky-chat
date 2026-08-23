@@ -11,9 +11,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_subdirectory(
-    utils
-)
+
 include(CTest)
 
 include(FetchContent)
@@ -28,3 +26,9 @@ FetchContent_MakeAvailable(googletest)
 if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()
+
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
+
+add_subdirectory(utils)
+add_subdirectory(chat)

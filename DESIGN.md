@@ -37,6 +37,20 @@ struct FieldReq {
 struct UserList {
     vector<string> users;
 }
+
+struct ConnectionSetup {
+    string username;
+}
+```
+
+### Connection setup
+There is a Connection Setter class that will listen on a known port to handler new connection requests from the clients, via the ConnectionSetup packet. The Connection Setter will then create a new NetworkHandler for the new connection and add it to the list of active connections. This list of connections will be stored as a shared vector between the threads(as per current implementation design).
+
+```c++
+struct Connection {
+    string username;
+    unique_ptr<NetworkHandler> handler;
+}
 ```
 
 

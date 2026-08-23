@@ -12,7 +12,8 @@ enum class PacketType : uint8_t {
     ERROR,
     REQUEST,
     FIELD_REQ,
-    USER_LIST
+    USER_LIST,
+    CONNECTION_SETUP
 };
 
 enum class RequestType : uint8_t {
@@ -87,4 +88,17 @@ class UserListPacket : public Packet {
     void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
     const std::vector<std::string>& getUserList() const { return mUserList; }
+};
+
+class ConnectionSetupPacket : public Packet {
+    std::string mUsername;
+
+  public:
+    ConnectionSetupPacket(const std::string& username) : mUsername(username) {
+        mPacketType = PacketType::CONNECTION_SETUP;
+    }
+    ConnectionSetupPacket() { mPacketType = PacketType::CONNECTION_SETUP; }
+    void serialise(MemBuffer& ptr) override;
+    void deserialise(MemBuffer& ptr) override;
+    const std::string& getUsername() const { return mUsername; }
 };

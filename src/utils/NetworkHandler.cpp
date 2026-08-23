@@ -8,14 +8,21 @@
 
 #include "MemBuffer.h"
 
-int NetworkHandler::sendPacket(const Packet& packet) {
+NetworkHandler::~NetworkHandler() {
+    if (mSocket != -1) {
+        close(mSocket);
+        mSocket = -1;
+    }
+}
+
+int NetworkHandler::sendPacket(std::unique_ptr<Packet>& packet) {
     if (!mConnected) {
         std::cerr << "Not connected to server." << std::endl;
         return -1;
     }
 
     MemBuffer buffer;
-    packet.serialise(buffer);
+    packet->serialise(buffer);
 
     ssize_t bytes_sent = send(mSocket, buffer.data(), buffer.size(), 0);
     if (bytes_sent < 0) {

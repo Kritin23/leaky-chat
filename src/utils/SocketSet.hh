@@ -23,39 +23,55 @@ class SocketSet {
 
     NetworkHandler& operator[](SID idx) { return data[idx]; }
     const NetworkHandler& operator[](SID idx) const { return data[idx]; }
+
+    size_t size() const { return data.size(); }
+    bool empty() const { return data.empty(); }
 };
 
 template <typename T>
 class SocketMap {
   protected:
-    std::deque<T> data;
+    SocketSet& sset;
+    std::deque<T> mData;
 
     void ensure(size_t size) {
-        if (data.size() < size) {
-            data.resize(size);
+        if (mData.size() < size) {
+            mData.resize(size);
         }
     }
 
   public:
+    SocketMap(SocketSet& ss) : sset(ss) { mData.resize(ss.size()); }
+
     void insert(SID id, T&& value) {
         ensure(id + 1);
-        data[id] = std::move(value);
+        mData[id] = std::move(value);
     }
     void insert(SID id, const T& value) {
         ensure(id + 1);
-        data[id] = value;
+        mData[id] = value;
     }
 
     template <typename... Args>
     void emplace(SID id, Args&&... args) {
         ensure(id + 1);
-        data[id] = T(std::forward<Args>(args)...);
+        mData[id] = T(std::forward<Args>(args)...);
     }
 
-    T& operator[](SID idx) { return data[idx]; }
-    const T& operator[](SID idx) const { return data[idx]; }
+    std::vector<T> data() const {
+        std::vector<T> data;
+        data.reserve(mData.size());
+        for (size_t sid = 0; sid < sset.size(); sid++) {
+            if (sset[sid].connected()) {
+                data.push_back(mData[sid]);
+            }
+        }
+    }
 
-    size_t size() const { return data.size(); }
+    T& operator[](SID idx) { return mData[idx]; }
+    const T& operator[](SID idx) const { return mData[idx]; }
+
+    size_t size() const { return mData.size(); }
 };
 
 template <typename T>
@@ -109,4 +125,6 @@ class IndexedSocketMap : public SocketMap<T> {
         }
         return std::nullopt;
     }
+
+    bool contains(const T& val) { return reverseMap.contains(val); }
 };

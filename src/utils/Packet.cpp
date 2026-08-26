@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <string>
+#include "utils/MemBuffer.h"
 
 std::unique_ptr<Packet> getPacketFactory(MemBuffer& buffer) {
     PacketType packetType;
@@ -43,43 +44,39 @@ std::unique_ptr<Packet> getPacketFactory(MemBuffer& buffer) {
 }
 
 void MessagePacket::serialise(MemBuffer& ptr) const {
-    ptr << (uint8_t)mPacketType;
-    ptr << mUsername;
+    this->Packet::serialise(ptr);
+    ptr << mSender;
+    ptr << mReceiver;
     ptr << mMessage;
 }
 
 void MessagePacket::deserialise(MemBuffer& ptr) {
-    PacketType packetType;
-    ptr >> (uint8_t&)packetType;
-    mPacketType = packetType;
-    ptr >> mUsername;
+    this->Packet::deserialise(ptr);
+    ptr >> mSender;
+    ptr >> mReceiver;
     ptr >> mMessage;
 }
 
 void RequestPacket::serialise(MemBuffer& ptr) const {
-    ptr << (uint8_t)mPacketType;
+    this->Packet::serialise(ptr);
     ptr << (uint8_t)mRequestType;
 }
 
 void RequestPacket::deserialise(MemBuffer& ptr) {
-    PacketType packetType;
-    ptr >> (uint8_t&)packetType;
-    mPacketType = packetType;
+    this->Packet::deserialise(ptr);
     RequestType requestType;
     ptr >> (uint8_t&)requestType;
     mRequestType = requestType;
 }
 
 void FieldReqPacket::serialise(MemBuffer& ptr) const {
-    ptr << (uint8_t)mPacketType;
+    this->Packet::serialise(ptr);
     ptr << (uint8_t)mRequestType;
     ptr << mField;
 }
 
 void FieldReqPacket::deserialise(MemBuffer& ptr) {
-    PacketType packetType;
-    ptr >> (uint8_t&)packetType;
-    mPacketType = packetType;
+    this->Packet::deserialise(ptr);
     RequestType requestType;
     ptr >> (uint8_t&)requestType;
     mRequestType = requestType;
@@ -87,25 +84,33 @@ void FieldReqPacket::deserialise(MemBuffer& ptr) {
 }
 
 void UserListPacket::serialise(MemBuffer& ptr) const {
-    ptr << (uint8_t)mPacketType;
+    this->Packet::serialise(ptr);
     ptr << mUserList;
 }
 
 void UserListPacket::deserialise(MemBuffer& ptr) {
-    PacketType packetType;
-    ptr >> (uint8_t&)packetType;
-    mPacketType = packetType;
+    this->Packet::deserialise(ptr);
     ptr >> mUserList;
 }
 
 void ConnectionSetupPacket::serialise(MemBuffer& ptr) const {
-    ptr << (uint8_t)mPacketType;
+    this->Packet::serialise(ptr);
     ptr << mUsername;
 }
 
 void ConnectionSetupPacket::deserialise(MemBuffer& ptr) {
-    PacketType packetType;
-    ptr >> (uint8_t&)packetType;
-    mPacketType = packetType;
+    this->Packet::deserialise(ptr);
     ptr >> mUsername;
+}
+
+void ControlPacket::serialise(Membuffer& ptr) const {
+    this->Packet::serialise(ptr);
+    ptr << (uint8_t) control;
+    ptr << (uint32_t) replyTo;
+}
+
+void ControlPacket::deserialise(MemBuffer& ptr) {
+    this->Packet::deserialise(ptr);
+    ptr >> (uint8_t&) mControl;
+    ptr >> (uint32_t&) mReplyTo;
 }

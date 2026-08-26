@@ -24,7 +24,7 @@ class NetworkHandler {
     ~NetworkHandler();
 
     int connect();
-    int sendPacket(std::unique_ptr<Packet>& packet);
+    int sendPacket(const Packet& packet);
     std::unique_ptr<Packet> receivePacket();
     int getSocket() const { return mSocket; }
     int setSocket(int socket) {
@@ -33,4 +33,6 @@ class NetworkHandler {
         return 0;
     }
     int getFd() const { return mSocket; }
+    bool connected() const {return mConnected;}
+    void close();
 };

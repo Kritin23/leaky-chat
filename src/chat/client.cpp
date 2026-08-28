@@ -8,7 +8,7 @@ bool Client::waitUntilAck(SequenceNo seq) {
         if (pkt->mPacketType == PacketType::CONTROL) {
             auto ctlPkt = getDerivedPacket<ControlPacket>(std::move(pkt));
             if (ctlPkt->getReplyTo() == seq) {
-                return ctlPkt->getCtl() == ControlField::ACK ? true : false;
+                return ctlPkt->getControlField() == ControlField::ACK ? true : false;
             } else {
                 pktQueue.push_back(std::move(pkt));
             }

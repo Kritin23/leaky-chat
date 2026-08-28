@@ -1,29 +1,14 @@
-add_executable(server
-    server.cpp 
-    server_main.cpp
-)
-
-add_executable(client
+add_library(chat
     client.cpp
-    client_main.cpp 
+    server.cpp
 )
 
-target_include_directories(server
+target_include_directories(chat
     PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/..
 )
 
-target_link_libraries(server 
-    PRIVATE 
-        utils
+target_link_libraries(chat
+    PUBLIC
+    utils
 )
-target_link_libraries(client 
-    PRIVATE 
-        utils 
-)
-
-target_include_directories(server PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_include_directories(client PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-
-target_compile_options(server PRIVATE -Wall -Wextra -Wpedantic)
-target_compile_options(client PRIVATE -Wall -Wextra -Wpedantic)

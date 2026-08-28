@@ -3,6 +3,7 @@ add_library(utils STATIC
     NetworkHandler.cpp
     Packet.cpp
     SocketSet.cpp
+    ConnectionSetter.cpp
 )
 
 target_include_directories(utils

@@ -69,3 +69,8 @@ void Client::quit() {
         serverSocket.sendPacket(quitPkt);
     } while (waitUntilAck(seq));
 }
+
+bool Client::setupConnection(std::string_view host, int port) {
+    serverSocket = NetworkHandler(std::string(host), port);
+    return serverSocket.connect() == 0;
+}

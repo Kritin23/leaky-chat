@@ -2,11 +2,13 @@
 #include "MemBuffer.h"
 
 #include <string>
+#include <cstring>
+#include <stdexcept>
 
 void MemBuffer::resize(size_t sz) {
     if (size() < sz) {
         char* newBuffer = new char[sz];
-        memcpy(newBuffer, data_ + begin, end - begin);
+        std::memcpy(newBuffer, data_ + begin, end - begin);
         end = end - begin;
         begin = 0;
         data_ = newBuffer;

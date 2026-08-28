@@ -1,6 +1,16 @@
 #include "server.h"
+#include <iostream>
 #include <memory>
 #include "utils/Packet.hh"
+
+void Server::handleConnect() {
+    // use the connectionSetter to get new connections
+    connectionSetter.processConnections();
+    // add the new connections to the connections SocketSet
+    for (size_t i = 0; i < connectionSetter.getSharedConnections()->size(); i++) {
+        connections.insert(std::move((*connectionSetter.getSharedConnections())[i]));
+    }
+}
 
 void Server::handleLogin(SID sid, std::unique_ptr<FieldReqPacket>&& pkt) {
     std::string requestedUname = pkt->getField();
@@ -33,6 +43,89 @@ void Server::handleMessage(SID sid, std::unique_ptr<MessagePacket>&& pkt) {
         return;
     SID rcvr = *rcvrOpt;
     connections[rcvr].sendPacket(*pkt);
+}
 
+int Server::run() {
+    while (true) {
+        std::cerr   << "Waiting for new connections..." << std::endl;
+        handleConnect();
 
+        NetworkHandler* handler = connections.waitForRead();
+        std::cerr << "Received packet from connection " << handler->getSocket() << std::endl;
+
+        if (!handler) {
+            continue;
+        }
+
+        SID sid = 0;
+
+        // Find the SID corresponding to the ready handler.
+        for (size_t i = 0; i < connections.size(); ++i) {
+            if (&connections[i] == handler) {
+                sid = i;
+                break;
+            }
+        }
+
+        auto pkt = handler->receivePacket();
+
+        if (!pkt) {
+            std::cerr
+                << "Failed to receive packet from connection "
+                << sid << '\n';
+            continue;
+        }
+
+        switch (pkt->mPacketType) {
+
+            case PacketType::FIELD_REQ: {
+                auto fieldReqPkt =
+                    getDerivedPacket<FieldReqPacket>(
+                        std::move(pkt));
+
+                handleLogin(
+                    sid,
+                    std::move(fieldReqPkt));
+
+                break;
+            }
+
+            case PacketType::REQUEST: {
+                auto reqPkt =
+                    getDerivedPacket<RequestPacket>(
+                        std::move(pkt));
+
+                if (reqPkt->mRequestType == RequestType::DISCONNECT) {
+                    handleQuit(
+                        sid,
+                        std::move(reqPkt));
+                } else {
+
+                    getUserList(
+                        sid,
+                        std::move(reqPkt));
+                }
+
+                break;
+            }
+
+            case PacketType::MESSAGE: {
+                auto msgPkt =
+                    getDerivedPacket<MessagePacket>(
+                        std::move(pkt));
+
+                handleMessage(
+                    sid,
+                    std::move(msgPkt));
+
+                break;
+            }
+
+            default:
+                std::cerr
+                    << "Unexpected packet type from "
+                    << sid << '\n';
+                break;
+        }
+    }
 }

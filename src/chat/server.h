@@ -1,15 +1,19 @@
 #pragma once
 
+#include <sys/types.h>
 #include <memory>
 
 #include "utils/NetworkHandler.hh"
 #include "utils/Packet.hh"
 #include "utils/SocketSet.hh"
+#include "utils/ConnectionSetter.hh"
 
 class Server {
+  uint16_t mPort = 10101;
   private:
     SocketSet connections;
     NetworkHandler publicSocket;
+    ConnectionSetter connectionSetter{mPort};
 
     IndexedSocketMap<std::string> usernames;
 
@@ -21,6 +25,11 @@ class Server {
     void handleMessage(SID, std::unique_ptr<MessagePacket>&&);
 
   public:
-    Server();
+    Server() : mPort(10101),
+      connectionSetter(mPort),
+      usernames(connections) {} 
+    Server(uint16_t port) : mPort(port), publicSocket("0.0.0", mPort), usernames(connections) {
+        publicSocket.connect();
+    }
     int run();
 };

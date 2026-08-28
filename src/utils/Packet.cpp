@@ -6,7 +6,7 @@
 #include <string>
 #include "utils/MemBuffer.h"
 
-std::unique_ptr<Packet> getPacketFactory(MemBuffer& buffer) {
+std::unique_ptr<Packet> Packet::getPacketFactory(MemBuffer& buffer) {
     PacketType packetType;
     packetType = static_cast<PacketType>(buffer.view()[0]);
 
@@ -35,6 +35,16 @@ std::unique_ptr<Packet> getPacketFactory(MemBuffer& buffer) {
             auto errorPacket = std::make_unique<Packet>();
             errorPacket->mPacketType = PacketType::ERROR;
             return errorPacket;
+        }
+        case PacketType::CONNECTION_SETUP: {
+            auto connectionSetupPacket = std::make_unique<ConnectionSetupPacket>();
+            connectionSetupPacket->deserialise(buffer);
+            return connectionSetupPacket;
+        }
+        case PacketType::CONTROL: {
+            auto controlPacket = std::make_unique<ControlPacket>();
+            controlPacket->deserialise(buffer);
+            return controlPacket;
         }
         default:
             throw std::runtime_error(
@@ -95,18 +105,16 @@ void UserListPacket::deserialise(MemBuffer& ptr) {
 
 void ConnectionSetupPacket::serialise(MemBuffer& ptr) const {
     this->Packet::serialise(ptr);
-    ptr << mUsername;
 }
 
 void ConnectionSetupPacket::deserialise(MemBuffer& ptr) {
     this->Packet::deserialise(ptr);
-    ptr >> mUsername;
 }
 
-void ControlPacket::serialise(Membuffer& ptr) const {
+void ControlPacket::serialise(MemBuffer& ptr) const {
     this->Packet::serialise(ptr);
-    ptr << (uint8_t) control;
-    ptr << (uint32_t) replyTo;
+    ptr << (uint8_t) mControl;
+    ptr << (uint32_t) mReplyTo;
 }
 
 void ControlPacket::deserialise(MemBuffer& ptr) {

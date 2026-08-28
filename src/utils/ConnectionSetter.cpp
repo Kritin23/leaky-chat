@@ -4,47 +4,51 @@
 #include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
-#include <thread>
+#include <cerrno>
+#include <cstring>
+
 
 int ConnectionSetter::getConnections() {
-    sockaddr_in clientAddress;
+    sockaddr_in clientAddress{};
     socklen_t clientAddressLength = sizeof(clientAddress);
+
     int clientSocket = accept(mSocket, (struct sockaddr*)&clientAddress, &clientAddressLength);
+
     if (clientSocket < 0) {
-        std::cerr << "Failed to accept new connection" << std::endl;
+        if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            return -1;
+        }
+
+        std::cerr << "Failed to accept new connection: "
+                  << std::strerror(errno) << std::endl;
         return -1;
     }
-    mOwnHandler.setSocket(clientSocket);
-    auto packet = mOwnHandler.receivePacket();
-    if (!packet) {
-        std::cerr << "Failed to receive packet from new connection" << std::endl;
-        close(clientSocket);
-        return -1;
-    }
-    if (packet->mPacketType != PacketType::CONNECTION_SETUP) {
-        std::cerr << "Received unexpected packet type from new connection" << std::endl;
-        close(clientSocket);
-        return -1;
-    }
-    auto connectionSetupPacket = dynamic_cast<ConnectionSetupPacket*>(packet.get());
-    if (!connectionSetupPacket) {
-        std::cerr << "Failed to cast packet to ConnectionSetupPacket" << std::endl;
-        close(clientSocket);
-        return -1;
-    }
-    std::string username = connectionSetupPacket->getUsername();
+
     std::string clientIP = inet_ntoa(clientAddress.sin_addr);
 
-    Connection newConnection(username, std::make_unique<NetworkHandler>(clientIP, mPort));
-    newConnection.handler->setSocket(clientSocket);
-    mSharedConnections->push_back(*newConnection.handler);
+    NetworkHandler handler(clientIP, mPort);
+    handler.setSocket(clientSocket);
 
-    std::cout << "New connection established with username: " << username << std::endl;
+    mSharedConnections->push_back(std::move(handler));
+
+    std::cerr << "New connection established with: "
+              << clientIP << std::endl;
+
     return 0;
 }
 
 int ConnectionSetter::processConnections() {
+    // clear the shared connections vector
+    mSharedConnections = std::make_unique<SharedVector<NetworkHandler>>();
     while (getConnections() == 0) {
         sleep(1);
+        std::cerr << "Waiting for new connections..." << std::endl;
+    }
+    return 0;
+}
+
+ConnectionSetter::~ConnectionSetter() {
+    if (mSocket >= 0) {
+        close(mSocket);
     }
 }

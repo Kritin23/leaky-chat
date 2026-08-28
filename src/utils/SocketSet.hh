@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <optional>
 
 #include "NetworkHandler.hh"
 
@@ -66,6 +67,7 @@ class SocketMap {
                 data.push_back(mData[sid]);
             }
         }
+        return data;
     }
 
     T& operator[](SID idx) { return mData[idx]; }
@@ -96,11 +98,12 @@ class IndexedSocketMap : public SocketMap<T> {
     std::unordered_map<const T*, SID, DerefHash<T>, DerefEqual<T>> reverseMap;
 
   public:
+    IndexedSocketMap(SocketSet& ss) : SocketMap<T>(ss) {}
     template <typename U>
     void insert(SID id, U&& value) {
         if (id < this->size()) {
             const T& old_val = (*this)[id];
-            reverseMap.erase(old_val);
+            // reverseMap.erase(old_val);
         }
         SocketMap<T>::insert(id, std::forward<U>(value));
         const T* element_ptr = &((*this)[id]);
@@ -111,7 +114,7 @@ class IndexedSocketMap : public SocketMap<T> {
     void emplace(SID id, Args&&... args) {
         if (id < this->size()) {
             const T& old_val = (*this)[id];
-            reverseMap.erase(old_val);
+            // reverseMap.erase(old_val);
         }
         SocketMap<T>::emplace(id, std::forward<Args>(args)...);
         const T* element_ptr = &((*this)[id]);

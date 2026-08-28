@@ -5,8 +5,11 @@
 #include <unistd.h>
 
 #include <memory>
+#include <cerrno>
+#include <cstring>
 
 #include "MemBuffer.h"
+
 
 NetworkHandler::~NetworkHandler() {
     close();
@@ -18,7 +21,7 @@ int NetworkHandler::sendPacket(const Packet& packet) {
         return -1;
     }
 
-    MemBuffer buffer;
+    MemBuffer buffer(1024);
     packet.serialise(buffer);
 
     ssize_t bytes_sent = send(mSocket, buffer.data(), buffer.size(), 0);
@@ -51,7 +54,7 @@ int NetworkHandler::connect() {
         0) {
         std::cerr << "Connection to " << mHost << ":" << mPort << " failed."
                   << std::endl;
-        close(sock);
+        ::close(sock);
         return -1;
     }
 
@@ -63,15 +66,50 @@ int NetworkHandler::connect() {
 std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     if (!mConnected) {
         std::cerr << "Not connected to server." << std::endl;
-        return std::make_unique<Packet>();
+        return nullptr;
     }
 
-    ssize_t bytes_received =
-        recv(mSocket, mRecvBuffer.data(), mRecvBuffer.capacity(), 0);
-    if (bytes_received < 0) {
-        std::cerr << "Failed to receive packet." << std::endl;
-        return std::make_unique<Packet>();
+    fd_set readfds;
+    FD_ZERO(&readfds);
+    FD_SET(mSocket, &readfds);
+
+    timeval timeout{};
+    timeout.tv_sec = 1;
+    timeout.tv_usec = 0;
+
+    int select_result = select(mSocket + 1, &readfds, nullptr, nullptr, &timeout);
+
+    if (select_result < 0) {
+        if (errno == EINTR) {
+            return nullptr;
+        }
+
+        std::cerr << "Select failed: " << std::strerror(errno) << std::endl;
+        return nullptr;
+    } else if (select_result == 0) {
+        return nullptr;
     }
+
+    char buffer[64 * 1024];
+
+    ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
+
+    if (bytes_received < 0) {
+        if (errno == EINTR) {
+            return nullptr;
+        }
+
+        std::cerr << "Failed to receive packet: " << std::strerror(errno) << std::endl;
+        return nullptr;
+    }
+
+    if (bytes_received == 0) {
+        close();
+        return nullptr;
+    }
+
+    mRecvBuffer.write_bytes(buffer, static_cast<size_t>(bytes_received));
+
     return Packet::getPacketFactory(mRecvBuffer);
 }
 

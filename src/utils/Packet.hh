@@ -88,9 +88,9 @@ class MessagePacket : public Packet {
 };
 
 class RequestPacket : public Packet {
+  public:
     RequestType mRequestType;
 
-  public:
     RequestPacket(RequestType requestType) : mRequestType(requestType) {
         mPacketType = PacketType::REQUEST;
     }
@@ -134,16 +134,13 @@ class UserListPacket : public Packet {
 };
 
 class ConnectionSetupPacket : public Packet {
-    std::string mUsername;
+    // std::string mUsername;
 
   public:
-    ConnectionSetupPacket(const std::string& username) : mUsername(username) {
-        mPacketType = PacketType::CONNECTION_SETUP;
-    }
     ConnectionSetupPacket() { mPacketType = PacketType::CONNECTION_SETUP; }
     void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
-    const std::string& getUsername() const { return mUsername; }
+    // const std::string& getUsername() const { return mUsername; }
 };
 
 class ControlPacket : public Packet {

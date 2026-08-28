@@ -15,8 +15,23 @@ class SharedVector {
         mVector.push_back(item);
     }
 
+    void push_back(T&& item) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        mVector.push_back(std::move(item));
+    }
+
     std::vector<T> getVector() {
         std::lock_guard<std::mutex> lock(mMutex);
         return mVector;
+    }
+
+    size_t size() {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mVector.size();
+    }
+
+    T& operator[](size_t index) {
+        std::lock_guard<std::mutex> lock(mMutex);
+        return mVector[index];
     }
 };

@@ -19,7 +19,10 @@ class Client {
     std::unique_ptr<Packet> waitForType(PacketType type);
 
   public:
-    Client();  
+    Client() {
+
+    }
+    bool setupConnection(std::string_view host, int port);
     bool login(std::string_view uname);  
     bool connectTo(std::string_view uname);
     void send(std::string_view msg);

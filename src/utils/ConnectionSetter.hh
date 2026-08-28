@@ -13,14 +13,12 @@
 #include <fcntl.h>
 
 struct Connection {
-    std::string username;
+
     std::unique_ptr<NetworkHandler> handler;
 
     Connection(
-        std::string username,
         std::unique_ptr<NetworkHandler> handler)
-        : username(std::move(username)),
-          handler(std::move(handler)) {}
+          : handler(std::move(handler)) {}
 };
 
 class ConnectionSetter {
@@ -53,6 +51,10 @@ class ConnectionSetter {
             if (::bind(mSocket, (struct sockaddr*)&mAddress, sizeof(mAddress)) < 0) {
                 throw std::runtime_error("Failed to bind socket");
             }
+            if (::listen(mSocket, SOMAXCONN) < 0) {
+                throw std::runtime_error(
+                    "Failed to listen on socket");
+            }
 
           }
 
@@ -61,6 +63,10 @@ class ConnectionSetter {
     int getConnections();
 
     int processConnections();
+
+    std::unique_ptr<SharedVector<NetworkHandler>>& getSharedConnections() {
+        return mSharedConnections;
+    }
 
 
 

@@ -1,9 +1,9 @@
 #pragma once
 
+#include <deque>
 #include <memory>
 #include <string>
 #include <string_view>
-#include <deque>
 
 #include "utils/NetworkHandler.hh"
 #include "utils/Packet.hh"
@@ -19,13 +19,11 @@ class Client {
     std::unique_ptr<Packet> waitForType(PacketType type);
 
   public:
-    Client() {
-
-    }
+    Client() {}
     bool setupConnection(std::string_view host, int port);
-    bool login(std::string_view uname);  
+    bool login(std::string_view uname);
     bool connectTo(std::string_view uname);
-    void send(std::string_view msg);
+    uint32_t send(std::string_view msg);
     std::vector<std::string> getUsers();
     std::unique_ptr<Packet> poll();
     void quit();

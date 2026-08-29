@@ -102,8 +102,8 @@ class IndexedSocketMap : public SocketMap<T> {
     template <typename U>
     void insert(SID id, U&& value) {
         if (id < this->size()) {
-            const T& old_val = (*this)[id];
-            // reverseMap.erase(old_val);
+            const T* old_val = &(*this)[id];
+            reverseMap.erase(old_val);
         }
         SocketMap<T>::insert(id, std::forward<U>(value));
         const T* element_ptr = &((*this)[id]);

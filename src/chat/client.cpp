@@ -1,4 +1,5 @@
 #include "client.h"
+#include <memory>
 
 #include "utils/Packet.hh"
 
@@ -11,7 +12,8 @@ bool Client::waitUntilAck(SequenceNo seq) {
         if (pkt->mPacketType == PacketType::CONTROL) {
             auto ctlPkt = getDerivedPacket<ControlPacket>(std::move(pkt));
             if (ctlPkt->getReplyTo() == seq) {
-                return ctlPkt->getControlField() == ControlField::ACK ? true : false;
+                return ctlPkt->getControlField() == ControlField::ACK ? true
+                                                                      : false;
             } else {
                 pktQueue.push_back(std::move(pkt));
             }
@@ -48,11 +50,12 @@ bool Client::connectTo(std::string_view uname) {
     return true;
 }
 
-void Client::send(std::string_view msg) {
+uint32_t Client::send(std::string_view msg) {
     SequenceNo seq = curSeqNo++;
     auto msgPkt = MessagePacket(connected, std::string(msg));
     msgPkt.seq = seq;
     serverSocket.sendPacket(msgPkt);
+    return seq;
 }
 
 // std::vector<std::string> Client::getUsers() {
@@ -81,19 +84,20 @@ std::vector<std::string> Client::getUsers() {
         return {};
     }
 
-    std::cerr << "[CLIENT] got USER_LIST packet" << std::endl;
-
     auto userListPkt =
         getDerivedPacket<UserListPacket>(std::move(reply));
 
-    std::cerr << "[CLIENT] about to access user list" << std::endl;
-
     const auto& users = userListPkt->getUserList();
 
-    std::cerr << "[CLIENT] user count = "
-              << users.size() << std::endl;
-
     return users;
+}
+
+std::unique_ptr<Packet> Client::poll() {
+    if (pktQueue.empty())
+        return nullptr;
+    auto pkt = std::move(pktQueue.front());
+    pktQueue.pop_front();
+    return pkt;
 }
 
 void Client::quit() {
@@ -109,14 +113,4 @@ void Client::quit() {
 bool Client::setupConnection(std::string_view host, int port) {
     serverSocket = NetworkHandler(std::string(host), port);
     return serverSocket.connect() == 0;
-}
-
-std::unique_ptr<Packet> Client::poll() {
-    if (!pktQueue.empty()) {
-        auto pkt = std::move(pktQueue.front());
-        pktQueue.pop_front();
-        return pkt;
-    }
-
-    return serverSocket.receivePacket();
 }

@@ -31,7 +31,7 @@ enum class ControlField : uint8_t {
     ERROR,
 };
 
-using SequenceNo = uint32_t;
+using SequenceNo = uint64_t;
 
 class Packet {
   public:

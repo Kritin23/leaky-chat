@@ -1,20 +1,19 @@
-add_executable(system_test
-    system_test.cc
-)
+function(add_chat_test test_name)
+    add_executable(${test_name}
+        ${test_name}.cc
+    )
 
-target_include_directories(system_test
-    PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../utils
-    ${CMAKE_CURRENT_SOURCE_DIR}/../chat
-)
+    target_link_libraries(${test_name}
+        PRIVATE
+        utils
+        chat
+    )
 
-target_link_libraries(system_test
-    PRIVATE
-    utils
-    chat
-)
+    add_test(
+        NAME ${test_name}
+        COMMAND ${test_name}
+    )
+endfunction()
 
-add_test(
-    NAME system_test
-    COMMAND system_test
-)
+add_chat_test(system_test)
+add_chat_test(multiple_clients_test)

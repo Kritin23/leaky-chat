@@ -16,7 +16,10 @@ void runServer() {
 void runClient1() {
     Client client;
     std::this_thread::sleep_for(std::chrono::seconds(1)); // wait for server to start
-    client.setupConnection("127.0.0.1", 10101);
+    if(!client.setupConnection("127.0.0.1", 10101)) {
+        std::cerr << "Client 1 failed to connect to server." << std::endl;
+        return;
+    }
     client.login("testuser1");
     std::this_thread::sleep_for(std::chrono::seconds(1)); // wait for server to process login
     client.connectTo("testuser2");
@@ -26,7 +29,11 @@ void runClient1() {
 void runClient2() {
     Client client;
     std::this_thread::sleep_for(std::chrono::seconds(1)); // wait for server to start
-    client.setupConnection("127.0.0.1", 10101);
+
+    if(!client.setupConnection("127.0.0.1", 10101)) {
+        std::cerr << "Client 2 failed to connect to server." << std::endl;
+        return;
+    }
     client.login("testuser2");
     std::this_thread::sleep_for(std::chrono::seconds(1)); // wait for server to process login
     client.connectTo("testuser1");

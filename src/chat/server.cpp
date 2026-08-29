@@ -4,12 +4,7 @@
 #include "utils/Packet.hh"
 
 void Server::handleConnect() {
-    // use the connectionSetter to get new connections
     connectionSetter.processConnections();
-    // add the new connections to the connections SocketSet
-    for (size_t i = 0; i < connectionSetter.getSharedConnections()->size(); i++) {
-        connections.insert(std::move((*connectionSetter.getSharedConnections())[i]));
-    }
 }
 
 void Server::handleLogin(SID sid, std::unique_ptr<FieldReqPacket>&& pkt) {
@@ -47,15 +42,16 @@ void Server::handleMessage(SID sid, std::unique_ptr<MessagePacket>&& pkt) {
 
 int Server::run() {
     while (true) {
-        std::cerr   << "Waiting for new connections..." << std::endl;
+        // std::cerr   << "Waiting for new connections..." << std::endl;
         handleConnect();
 
         NetworkHandler* handler = connections.waitForRead();
-        std::cerr << "Received packet from connection " << handler->getSocket() << std::endl;
-
+        
         if (!handler) {
             continue;
         }
+        // std::cerr << "Received packet from connection " << handler->getSocket() << std::endl;
+        // std::cerr << "Handler pointer: " << handler << std::endl;
 
         SID sid = 0;
 
@@ -70,9 +66,9 @@ int Server::run() {
         auto pkt = handler->receivePacket();
 
         if (!pkt) {
-            std::cerr
-                << "Failed to receive packet from connection "
-                << sid << '\n';
+            // std::cerr
+            //     << "Failed to receive packet from connection "
+            //     << sid << '\n';
             continue;
         }
 

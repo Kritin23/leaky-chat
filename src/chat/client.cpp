@@ -5,6 +5,9 @@
 bool Client::waitUntilAck(SequenceNo seq) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
+        if(!pkt) {
+            continue;
+        }
         if (pkt->mPacketType == PacketType::CONTROL) {
             auto ctlPkt = getDerivedPacket<ControlPacket>(std::move(pkt));
             if (ctlPkt->getReplyTo() == seq) {
@@ -21,6 +24,9 @@ bool Client::waitUntilAck(SequenceNo seq) {
 std::unique_ptr<Packet> Client::waitForType(PacketType type) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
+        if(!pkt) {
+            return nullptr;
+        }
         if (pkt->mPacketType == type) {
             return pkt;
         } else {

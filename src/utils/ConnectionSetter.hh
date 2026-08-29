@@ -3,6 +3,7 @@
 
 #include "NetworkHandler.hh"
 #include "SharedVector.hh"
+#include "SocketSet.hh"
 
 #include <cstdint>
 #include <memory>
@@ -26,23 +27,23 @@ class ConnectionSetter {
     uint16_t mPort;
     int mSocket = -1;
     sockaddr_in mAddress;
-    NetworkHandler mOwnHandler;
-    std::unique_ptr<SharedVector<NetworkHandler>> mSharedConnections;
+    // NetworkHandler mOwnHandler;
+    // std::unique_ptr<SharedVector<NetworkHandler>> mSharedConnections;
+    SocketSet& mConnections;
     bool mRunning = false;
 
 
   public:
-    ConnectionSetter(uint16_t port)
+    ConnectionSetter(uint16_t port, SocketSet& connections)
         : mPort(port),
-          mOwnHandler("127.0.0.1", port),
-          mSharedConnections(std::make_unique<SharedVector<NetworkHandler>>()) {
+          mConnections(connections) {
 
             mSocket = socket(AF_INET, SOCK_STREAM, 0);
             if (mSocket < 0) {
                 throw std::runtime_error("Failed to create socket");
             }
             fcntl(mSocket, F_SETFL, O_NONBLOCK);
-            mOwnHandler.setSocket(mSocket);
+            // mOwnHandler.setSocket(mSocket);
 
             mAddress.sin_family = AF_INET;
             mAddress.sin_addr.s_addr = INADDR_ANY;
@@ -63,11 +64,5 @@ class ConnectionSetter {
     int getConnections();
 
     int processConnections();
-
-    std::unique_ptr<SharedVector<NetworkHandler>>& getSharedConnections() {
-        return mSharedConnections;
-    }
-
-
 
 };

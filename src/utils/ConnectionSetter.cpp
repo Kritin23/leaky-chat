@@ -29,20 +29,21 @@ int ConnectionSetter::getConnections() {
     NetworkHandler handler(clientIP, mPort);
     handler.setSocket(clientSocket);
 
-    mSharedConnections->push_back(std::move(handler));
+    SID sid = mConnections.insert(std::move(handler));
 
     std::cerr << "New connection established with: "
-              << clientIP << std::endl;
+              << clientIP << ":" << ntohs(clientAddress.sin_port)
+              << " SID=" << sid << std::endl;
 
     return 0;
 }
 
 int ConnectionSetter::processConnections() {
     // clear the shared connections vector
-    mSharedConnections = std::make_unique<SharedVector<NetworkHandler>>();
+    // mSharedConnections = std::make_unique<SharedVector<NetworkHandler>>();
     while (getConnections() == 0) {
-        sleep(1);
-        std::cerr << "Waiting for new connections..." << std::endl;
+        // sleep(1);
+        // std::cerr << "Waiting for new connections..." << std::endl;
     }
     return 0;
 }

@@ -13,7 +13,7 @@ class Server {
   private:
     SocketSet connections;
     NetworkHandler publicSocket;
-    ConnectionSetter connectionSetter{mPort};
+    ConnectionSetter connectionSetter{mPort, connections};
 
     IndexedSocketMap<std::string> usernames;
 
@@ -26,7 +26,7 @@ class Server {
 
   public:
     Server() : mPort(10101),
-      connectionSetter(mPort),
+      connectionSetter(mPort, connections),
       usernames(connections) {} 
     Server(uint16_t port) : mPort(port), publicSocket("0.0.0", mPort), usernames(connections) {
         publicSocket.connect();

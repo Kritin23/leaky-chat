@@ -17,7 +17,7 @@ NetworkHandler::~NetworkHandler() {
 
 int NetworkHandler::sendPacket(const Packet& packet) {
     if (!mConnected) {
-        std::cerr << "Not connected to server." << std::endl;
+        // std::cerr << "Not connected to server." << std::endl;
         return -1;
     }
 
@@ -65,7 +65,7 @@ int NetworkHandler::connect() {
 
 std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     if (!mConnected) {
-        std::cerr << "Not connected to server." << std::endl;
+        // std::cerr << "Not connected to server." << std::endl;
         return nullptr;
     }
 
@@ -93,6 +93,14 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     char buffer[64 * 1024];
 
     ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
+    std::cerr << "[RECV] fd=" << mSocket
+          << " bytes=" << bytes_received << std::endl;
+
+    if (bytes_received == 0) {
+        std::cerr << "[RECV] peer closed fd=" << mSocket << std::endl;
+        close();
+        return nullptr;
+    }
 
     if (bytes_received < 0) {
         if (errno == EINTR) {

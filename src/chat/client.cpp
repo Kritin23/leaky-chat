@@ -55,15 +55,45 @@ void Client::send(std::string_view msg) {
     serverSocket.sendPacket(msgPkt);
 }
 
+// std::vector<std::string> Client::getUsers() {
+//     SequenceNo seq = curSeqNo++;
+//     auto pkt = RequestPacket(RequestType::REQUEST_USERLIST);
+//     pkt.seq = seq;
+//     serverSocket.sendPacket(pkt);
+//     auto reply = waitForType(PacketType::USER_LIST);
+//     auto userListPkt = getDerivedPacket<UserListPacket>(std::move(reply));
+//     return userListPkt->getUserList();
+
+// }
+
 std::vector<std::string> Client::getUsers() {
     SequenceNo seq = curSeqNo++;
     auto pkt = RequestPacket(RequestType::REQUEST_USERLIST);
     pkt.seq = seq;
-    serverSocket.sendPacket(pkt);
-    auto reply = waitForType(PacketType::USER_LIST);
-    auto userListPkt = getDerivedPacket<UserListPacket>(std::move(reply));
-    return userListPkt->getUserList();
 
+    if (serverSocket.sendPacket(pkt) != 0) {
+        return {};
+    }
+
+    auto reply = waitForType(PacketType::USER_LIST);
+
+    if (!reply) {
+        return {};
+    }
+
+    std::cerr << "[CLIENT] got USER_LIST packet" << std::endl;
+
+    auto userListPkt =
+        getDerivedPacket<UserListPacket>(std::move(reply));
+
+    std::cerr << "[CLIENT] about to access user list" << std::endl;
+
+    const auto& users = userListPkt->getUserList();
+
+    std::cerr << "[CLIENT] user count = "
+              << users.size() << std::endl;
+
+    return users;
 }
 
 void Client::quit() {
@@ -79,4 +109,14 @@ void Client::quit() {
 bool Client::setupConnection(std::string_view host, int port) {
     serverSocket = NetworkHandler(std::string(host), port);
     return serverSocket.connect() == 0;
+}
+
+std::unique_ptr<Packet> Client::poll() {
+    if (!pktQueue.empty()) {
+        auto pkt = std::move(pktQueue.front());
+        pktQueue.pop_front();
+        return pkt;
+    }
+
+    return serverSocket.receivePacket();
 }

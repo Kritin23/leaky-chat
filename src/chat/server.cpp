@@ -71,6 +71,10 @@ int Server::run() {
             //     << sid << '\n';
             continue;
         }
+        std::cerr << "Received packet of type "
+                  << static_cast<int>(pkt->mPacketType)
+                  << " from connection "
+                  << sid << '\n';
 
         switch (pkt->mPacketType) {
 

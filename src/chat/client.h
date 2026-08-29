@@ -27,6 +27,6 @@ class Client {
     bool connectTo(std::string_view uname);
     void send(std::string_view msg);
     std::vector<std::string> getUsers();
-    auto poll();
+    std::unique_ptr<Packet> poll();
     void quit();
 };

@@ -80,7 +80,6 @@ void UI::pushEvent(UIEvent event) {
 
 bool UI::tryGetRequest(ClientRequest& request) {
     std::unique_lock lock(requestMutex_);
-    lock.lock();
     if (!running_ || requests_.empty()) 
         return false;
 
@@ -270,9 +269,13 @@ void UI::handleMessage(std::string_view input) {
 
     const auto space = input.find(' ');
 
-    if (space == std::string_view::npos || space <= 1)
+    if (space <= 1) {
         return;
-
+    } else if (space == std::string_view::npos) {
+        std::string_view recipient(input.substr(1, space - 1));
+        selectedPartner_ = recipient;
+        return;
+    }
     std::string recipient(input.substr(1, space - 1));
     std::string message(input.substr(space + 1));
 
@@ -373,7 +376,7 @@ void UI::render() {
 
 void UI::renderHistory() {
     for (const auto& command : commands_)
-        std::cout << command.text << '\n';
+        std::cout << "c: " << command.text << '\n';
 
     if (!onlineUsers_.empty()) {
         std::cout << "\nOnline users:\n";

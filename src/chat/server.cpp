@@ -42,7 +42,7 @@ void Server::handleMessage(SID sid, std::unique_ptr<MessagePacket>&& pkt) {
 
 int Server::run() {
     while (true) {
-        // std::cerr   << "Waiting for new connections..." << std::endl;
+        std::cerr   << "Waiting for new connections..." << std::endl;
         handleConnect();
 
         NetworkHandler* handler = connections.waitForRead();
@@ -50,8 +50,8 @@ int Server::run() {
         if (!handler) {
             continue;
         }
-        // std::cerr << "Received packet from connection " << handler->getSocket() << std::endl;
-        // std::cerr << "Handler pointer: " << handler << std::endl;
+        std::cerr << "Received packet from connection " << handler->getSocket() << std::endl;
+        std::cerr << "Handler pointer: " << handler << std::endl;
 
         SID sid = 0;
 
@@ -66,9 +66,9 @@ int Server::run() {
         auto pkt = handler->receivePacket();
 
         if (!pkt) {
-            // std::cerr
-            //     << "Failed to receive packet from connection "
-            //     << sid << '\n';
+            std::cerr
+                << "Failed to receive packet from connection "
+                << sid << '\n';
             continue;
         }
         std::cerr << "Received packet of type "

@@ -16,7 +16,7 @@ void clientLoop(Client& client, UI& ui)
          */
         ClientRequest request;
 
-        while (ui.tryGetRequest(request)) {
+        while (running && ui.tryGetRequest(request)) {
             switch (request.type) {
             case ClientRequest::Type::Login: {
                 bool success = client.login(request.username);

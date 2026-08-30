@@ -21,3 +21,11 @@ target_link_libraries(client
   PUBLIC 
     utils 
     chat)
+
+add_executable(server 
+    server_main.cpp)
+    
+target_link_libraries(server 
+  PUBLIC 
+    utils 
+    chat)

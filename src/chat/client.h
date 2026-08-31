@@ -9,6 +9,8 @@
 #include "utils/NetworkHandler.hh"
 #include "utils/Packet.hh"
 
+namespace client_impl {
+
 class Client {
   private:
     NetworkHandler serverSocket;
@@ -34,7 +36,6 @@ class Client {
 
 class UI;
 
-namespace client {
 inline std::binary_semaphore clientBackendSem(1);
 
 inline bool running = true;
@@ -42,4 +43,4 @@ inline bool running = true;
 void networkMonitor(int sockfd, std::binary_semaphore& sem);
 
 void clientLoop(Client& client, UI& ui);
-};  // namespace client
+};  // namespace client_impl

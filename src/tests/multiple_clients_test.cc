@@ -17,7 +17,7 @@ void runClient(int id,
                const std::vector<std::string>& receivers,
                const std::vector<std::string>& senders,
                std::barrier<>& loginBarrier) {
-    Client client;
+    client_impl::Client client;
 
     std::string username = "user" + std::to_string(id);
     std::string message = "Hello from " + username;

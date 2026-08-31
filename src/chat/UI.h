@@ -9,6 +9,8 @@
 
 #include "utils/Packet.hh"
 
+namespace client_impl {
+
 class ClientRequest {
   public:
     enum class Type { Login, SendMessage, GetUsers, Quit };
@@ -118,3 +120,5 @@ class UI {
     std::string input;
     std::size_t cursor = 0;
 };
+
+}  // namespace client_impl

@@ -8,6 +8,7 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
+#include <vector>
 
 #include "MemBuffer.h"
 
@@ -17,16 +18,100 @@ NetworkHandler::~NetworkHandler() {
     close();
 }
 
+int NetworkHandler::performClientHandshake() {
+    mCryptoState = CryptoState::HANDSHAKING;
+    mCrypto = std::make_unique<CryptoSession>();
+
+    auto publicKey = mCrypto->getPublicKey();
+
+    ssize_t bytes_sent =
+        send(mSocket, publicKey.data(), publicKey.size(), 0);
+
+    if (bytes_sent != static_cast<ssize_t>(publicKey.size())) {
+        std::cerr << "Failed to send DH public key." << std::endl;
+        return -1;
+    }
+
+    std::vector<std::uint8_t> peerPublicKey(publicKey.size());
+
+    ssize_t bytes_received =
+        recv(mSocket,
+             peerPublicKey.data(),
+             peerPublicKey.size(),
+             0);
+
+    if (bytes_received !=
+        static_cast<ssize_t>(peerPublicKey.size())) {
+        std::cerr << "Failed to receive DH public key." << std::endl;
+        return -1;
+    }
+    mCrypto->establish(peerPublicKey);
+    mCryptoState = CryptoState::ESTABLISHED;
+
+    return 0;
+}
+
+int NetworkHandler::performServerHandshake() {
+    mCryptoState = CryptoState::HANDSHAKING;
+    mCrypto = std::make_unique<CryptoSession>();
+
+    std::vector<std::uint8_t> peerPublicKey(256);
+
+    ssize_t bytes_received =
+        recv(mSocket,
+             peerPublicKey.data(),
+             peerPublicKey.size(),
+             0);
+
+    if (bytes_received !=
+        static_cast<ssize_t>(peerPublicKey.size())) {
+        std::cerr << "Failed to receive DH public key." << std::endl;
+        return -1;
+    }
+
+    auto publicKey = mCrypto->getPublicKey();
+
+    ssize_t bytes_sent =
+        send(mSocket, publicKey.data(), publicKey.size(), 0);
+
+    if (bytes_sent != static_cast<ssize_t>(publicKey.size())) {
+        std::cerr << "Failed to send DH public key." << std::endl;
+        return -1;
+    }
+
+    mCrypto->establish(peerPublicKey);
+    mCryptoState = CryptoState::ESTABLISHED;
+
+    return 0;
+}
+
 int NetworkHandler::sendPacket(const Packet& packet) {
-    if (!mConnected) {
-        // std::cerr << "Not connected to server." << std::endl;
+    if (!mConnected ||
+        mCryptoState != CryptoState::ESTABLISHED) {
         return -1;
     }
 
     MemBuffer buffer(1024);
     packet.serialise(buffer);
 
-    ssize_t bytes_sent = send(mSocket, buffer.data(), buffer.size(), 0);
+    std::vector<std::uint8_t> plaintext(
+        buffer.data(),
+        buffer.data() + buffer.size());
+
+    auto encrypted = mCrypto->encrypt(plaintext);
+
+    MemBuffer encryptedBuffer(1024);
+
+    encryptedBuffer << encrypted.nonce;
+    encryptedBuffer << encrypted.ciphertext;
+    encryptedBuffer << encrypted.tag;
+
+    ssize_t bytes_sent =
+        send(mSocket,
+             encryptedBuffer.data(),
+             encryptedBuffer.size(),
+             0);
+
     if (bytes_sent < 0) {
         std::cerr << "Failed to send packet." << std::endl;
         return -1;
@@ -62,12 +147,18 @@ int NetworkHandler::connect() {
 
     mConnected = true;
     mSocket = sock;
+
+    if (performClientHandshake() != 0) {
+        close();
+        return -1;
+    }
+
     return 0;
 }
 
 std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
-    if (!mConnected) {
-        // std::cerr << "Not connected to server." << std::endl;
+    if (!mConnected ||
+        mCryptoState != CryptoState::ESTABLISHED) {
         return nullptr;
     }
 
@@ -124,9 +215,34 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
         return nullptr;
     }
 
-    mRecvBuffer.write_bytes(buffer, static_cast<size_t>(bytes_received));
+    MemBuffer encryptedBuffer(bytes_received);
 
-    return Packet::getPacketFactory(mRecvBuffer);
+    encryptedBuffer.write_bytes(
+        buffer,
+        static_cast<size_t>(bytes_received));
+
+    AESGCM::EncryptedData encrypted{};
+
+    try {
+        encryptedBuffer >> encrypted.nonce;
+        encryptedBuffer >> encrypted.ciphertext;
+        encryptedBuffer >> encrypted.tag;
+
+        auto plaintext = mCrypto->decrypt(encrypted);
+
+        MemBuffer plaintextBuffer(plaintext.size());
+
+        plaintextBuffer.write_bytes(
+            plaintext.data(),
+            plaintext.size());
+
+        return Packet::getPacketFactory(plaintextBuffer);
+
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to decrypt packet: "
+                  << e.what() << std::endl;
+        return nullptr;
+    }
 }
 
 void NetworkHandler::close() {
@@ -135,4 +251,7 @@ void NetworkHandler::close() {
         ::close(mSocket);
         mSocket = -1;
     }
+
+    mCrypto.reset();
+    mCryptoState = CryptoState::DISCONNECTED;
 }

@@ -9,6 +9,8 @@
 #include "UI.h"
 #include "utils/Packet.hh"
 
+namespace client_impl {
+
 bool Client::waitUntilAck(SequenceNo seq) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
@@ -121,8 +123,6 @@ bool Client::setupConnection(std::string_view host, int port) {
     return serverSocket.connect() == 0;
 }
 
-namespace client {
-
 void networkMonitor(int sockfd, std::binary_semaphore& sem) {
     while (running) {
         pollfd fd = {sockfd, POLLIN, 0};
@@ -204,4 +204,4 @@ void clientLoop(Client& client, UI& ui) {
     netmon.join();
     ui.stop();
 }
-}  // namespace client
+}  // namespace client_impl

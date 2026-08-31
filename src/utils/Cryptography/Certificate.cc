@@ -54,21 +54,21 @@ bool Certificate::verify(const std::string& caPath,
         throw std::runtime_error("X509_STORE_CTX_init failed");
     }
 
-    bool valid = X509_verify_cert(ctx) == 1;
+    if (X509_verify_cert(ctx) != 1) {
+        X509_STORE_CTX_free(ctx);
+        X509_STORE_free(store);
+        return false;
+    }
 
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(store);
-
-    if (!valid)
-        return false;
 
     if (X509_check_host(mCertificate,
                         expectedIdentity.c_str(),
                         expectedIdentity.size(),
                         0,
-                        nullptr) != 1) {
+                        nullptr) != 1)
         return false;
-    }
 
     return true;
 }
@@ -78,4 +78,107 @@ EVP_PKEY* Certificate::getPublicKey() const {
         return nullptr;
 
     return X509_get_pubkey(mCertificate);
+}
+
+std::vector<std::uint8_t> Certificate::sign(
+    const std::string& privateKeyPath,
+    const std::vector<std::uint8_t>& data) {
+    FILE* file = fopen(privateKeyPath.c_str(), "rb");
+
+    if (!file) {
+        throw std::runtime_error("Failed to open private key: " +
+                                 privateKeyPath);
+    }
+
+    EVP_PKEY* privateKey = PEM_read_PrivateKey(file, nullptr, nullptr, nullptr);
+
+    fclose(file);
+
+    if (!privateKey)
+        throw std::runtime_error("Failed to read private key");
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+
+    if (!ctx) {
+        EVP_PKEY_free(privateKey);
+        throw std::runtime_error("EVP_MD_CTX_new failed");
+    }
+
+    if (EVP_DigestSignInit(ctx, nullptr, EVP_sha256(), nullptr, privateKey) !=
+        1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(privateKey);
+
+        throw std::runtime_error("EVP_DigestSignInit failed");
+    }
+
+    if (EVP_DigestSignUpdate(ctx, data.data(), data.size()) != 1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(privateKey);
+
+        throw std::runtime_error("EVP_DigestSignUpdate failed");
+    }
+
+    size_t signatureSize = 0;
+
+    if (EVP_DigestSignFinal(ctx, nullptr, &signatureSize) != 1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(privateKey);
+
+        throw std::runtime_error("EVP_DigestSignFinal failed");
+    }
+
+    std::vector<std::uint8_t> signature(signatureSize);
+
+    if (EVP_DigestSignFinal(ctx, signature.data(), &signatureSize) != 1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(privateKey);
+
+        throw std::runtime_error("EVP_DigestSignFinal failed");
+    }
+
+    signature.resize(signatureSize);
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(privateKey);
+
+    return signature;
+}
+
+bool Certificate::verifySignature(
+    const std::vector<std::uint8_t>& data,
+    const std::vector<std::uint8_t>& signature) const {
+    EVP_PKEY* publicKey = getPublicKey();
+
+    if (!publicKey)
+        throw std::runtime_error("Failed to get certificate public key");
+
+    EVP_MD_CTX* ctx = EVP_MD_CTX_new();
+
+    if (!ctx) {
+        EVP_PKEY_free(publicKey);
+        throw std::runtime_error("EVP_MD_CTX_new failed");
+    }
+
+    if (EVP_DigestVerifyInit(ctx, nullptr, EVP_sha256(), nullptr, publicKey) !=
+        1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(publicKey);
+
+        throw std::runtime_error("EVP_DigestVerifyInit failed");
+    }
+
+    if (EVP_DigestVerifyUpdate(ctx, data.data(), data.size()) != 1) {
+        EVP_MD_CTX_free(ctx);
+        EVP_PKEY_free(publicKey);
+
+        throw std::runtime_error("EVP_DigestVerifyUpdate failed");
+    }
+
+    int result = EVP_DigestVerifyFinal(ctx, signature.data(), signature.size());
+
+    EVP_MD_CTX_free(ctx);
+    EVP_PKEY_free(publicKey);
+
+    return result == 1;
 }

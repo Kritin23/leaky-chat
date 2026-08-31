@@ -1,10 +1,9 @@
-# fill in this file with the CMake commands to build the Cryptography module
-# files in this directory are src/utils/Cryptography/*.cc and src/utils/Cryptography/*.hh
 add_library(cryptography STATIC
     DHKeyExchange.cc
     KeyDerivation.cc
     AESGCM.cc
     CryptoSession.cc
+    Certificate.cc
 )
 
 target_include_directories(cryptography

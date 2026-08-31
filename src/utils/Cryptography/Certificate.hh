@@ -12,7 +12,8 @@ class Certificate {
     X509* mCertificate = nullptr;
 
   public:
-    Certificate(const std::string& path);
+    explicit Certificate(const std::string& path);
+    explicit Certificate(const std::vector<std::uint8_t>& data);
     ~Certificate();
 
     Certificate(const Certificate&) = delete;

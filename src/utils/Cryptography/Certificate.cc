@@ -1,5 +1,6 @@
 #include "Certificate.hh"
 
+#include <openssl/bio.h>
 #include <openssl/pem.h>
 #include <openssl/x509_vfy.h>
 #include <openssl/x509v3.h>
@@ -19,6 +20,20 @@ Certificate::Certificate(const std::string& path) {
 
     if (!mCertificate)
         throw std::runtime_error("Failed to read certificate: " + path);
+}
+
+Certificate::Certificate(const std::vector<std::uint8_t>& data) {
+    BIO* bio = BIO_new_mem_buf(data.data(), static_cast<int>(data.size()));
+
+    if (!bio)
+        throw std::runtime_error("BIO_new_mem_buf failed");
+
+    mCertificate = PEM_read_bio_X509(bio, nullptr, nullptr, nullptr);
+
+    BIO_free(bio);
+
+    if (!mCertificate)
+        throw std::runtime_error("Failed to parse certificate");
 }
 
 Certificate::~Certificate() {
@@ -63,11 +78,7 @@ bool Certificate::verify(const std::string& caPath,
     X509_STORE_CTX_free(ctx);
     X509_STORE_free(store);
 
-    if (X509_check_host(mCertificate,
-                        expectedIdentity.c_str(),
-                        expectedIdentity.size(),
-                        0,
-                        nullptr) != 1)
+    if (X509_check_ip_asc(mCertificate, expectedIdentity.c_str(), 0) != 1)
         return false;
 
     return true;

@@ -15,6 +15,8 @@
 #include "Cryptography/Certificate.hh"
 #include "MemBuffer.h"
 
+using namespace std::chrono_literals;
+
 NetworkHandler::~NetworkHandler() {
     close();
 }

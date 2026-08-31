@@ -21,6 +21,12 @@ class NetworkHandler {
     MemBuffer mRecvBuffer{RECV_BUFFER_SIZE};
     std::unique_ptr<CryptoSession> mCrypto;
     CryptoState mCryptoState = CryptoState::DISCONNECTED;
+    std::string mCertificatePath = "certs/server/server.crt";
+    std::string mPrivateKeyPath = "certs/server/server.key";
+    std::string mCAPath = "certs/client/ca.crt";
+
+    int performClientCertificateAuthentication();
+    int performServerCertificateAuthentication();
 
     ssize_t receiveBytes(void* buffer, size_t size);
 

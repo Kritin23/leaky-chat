@@ -3,10 +3,13 @@
 #include <memory>
 #include <string>
 
+#include "Cryptography/CryptoSession.hh"
 #include "MemBuffer.h"
 #include "Packet.hh"
 
 static constexpr size_t RECV_BUFFER_SIZE = 64 * 1024;
+
+enum class CryptoState { DISCONNECTED, HANDSHAKING, ESTABLISHED };
 
 class NetworkHandler {
   private:
@@ -16,6 +19,8 @@ class NetworkHandler {
     int mInitialized = false;
     int mConnected = false;
     MemBuffer mRecvBuffer{RECV_BUFFER_SIZE};
+    std::unique_ptr<CryptoSession> mCrypto;
+    CryptoState mCryptoState = CryptoState::DISCONNECTED;
 
   public:
     NetworkHandler(std::string host, int port)
@@ -25,13 +30,14 @@ class NetworkHandler {
     NetworkHandler(const NetworkHandler&) = delete;
     NetworkHandler& operator=(const NetworkHandler&) = delete;
 
-    // MOVE SOCKET OWNERSHIP
     NetworkHandler(NetworkHandler&& other) noexcept
         : mHost(std::move(other.mHost)),
           mPort(other.mPort),
           mSocket(other.mSocket),
           mInitialized(other.mInitialized),
           mConnected(other.mConnected),
+          mCrypto(std::move(other.mCrypto)),
+          mCryptoState(other.mCryptoState),
           mRecvBuffer(std::move(other.mRecvBuffer)) {
         other.mSocket = -1;
         other.mConnected = false;
@@ -50,6 +56,8 @@ class NetworkHandler {
         mInitialized = other.mInitialized;
         mConnected = other.mConnected;
         mRecvBuffer = std::move(other.mRecvBuffer);
+        mCrypto = std::move(other.mCrypto);
+        mCryptoState = other.mCryptoState;
 
         other.mSocket = -1;
         other.mConnected = false;
@@ -71,4 +79,6 @@ class NetworkHandler {
     int getFd() const { return mSocket; }
     bool connected() const { return mConnected; }
     void close();
+    int performClientHandshake();
+    int performServerHandshake();
 };

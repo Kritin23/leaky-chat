@@ -35,19 +35,24 @@ class MemBuffer {
     void write_bytes(const void* src, size_t len);
 
     template <std::integral T>
-        requires(!std::is_same_v<T, bool>)
+        requires (!std::is_same_v<T, bool>)
     MemBuffer& operator<<(T val) {
         write_bytes(&val, sizeof(T));
         return *this;
     }
 
     template <std::integral T>
-        requires(!std::is_same_v<T, bool>)
+        requires (!std::is_same_v<T, bool>)
     MemBuffer& operator<<(std::vector<T> vec) {
         *this << vec.size();
         for (const auto& val : vec) {
             *this << val;
         }
+        return *this;
+    }
+    template <typename T, std::size_t N>
+    MemBuffer& operator<<(const std::array<T, N>& data) {
+        write_bytes(data.data(), N * sizeof(T));
         return *this;
     }
 
@@ -61,13 +66,13 @@ class MemBuffer {
     std::string_view view() const { return {data(), size()}; }
 
     template <std::integral T>
-        requires(!std::is_same_v<T, bool>)
+        requires (!std::is_same_v<T, bool>)
     MemBuffer& operator>>(T& val) {
         read(&val, sizeof(T));
         return *this;
     }
     template <std::integral T>
-        requires(!std::is_same_v<T, bool>)
+        requires (!std::is_same_v<T, bool>)
     MemBuffer& operator>>(std::vector<T>& vec) {
         size_t vecSize;
         *this >> vecSize;
@@ -75,6 +80,12 @@ class MemBuffer {
         for (auto& val : vec) {
             *this >> val;
         }
+        return *this;
+    }
+
+    template <typename T, std::size_t N>
+    MemBuffer& operator>>(std::array<T, N>& data) {
+        read(data.data(), N * sizeof(T));
         return *this;
     }
 

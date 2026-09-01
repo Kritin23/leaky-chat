@@ -1,14 +1,11 @@
 #pragma once
 
-#include <condition_variable>
-#include <cstdint>
 #include <deque>
 #include <mutex>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
-#include <vector>
 
 #include "utils/Packet.hh"
 
@@ -32,12 +29,9 @@ struct Message {
     bool failed = false;
 
     Message(std::string_view sv) : id{}, sender{}, text(sv) {}
-    Message(SequenceNo id, std::string_view text)
-        : id(id), text(text) {}
+    Message(SequenceNo id, std::string_view text) : id(id), text(text) {}
     Message(SequenceNo id, std::string_view sender, std::string_view text)
         : id(id), sender(sender), text(text) {}
-    
-    
 };
 
 class UI {

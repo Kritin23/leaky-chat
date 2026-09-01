@@ -2,7 +2,6 @@
 
 #include <deque>
 #include <memory>
-#include <mutex>
 #include <semaphore>
 #include <string>
 #include <string_view>
@@ -29,7 +28,7 @@ class Client {
     std::vector<std::string> getUsers();
     std::unique_ptr<Packet> poll();
     SequenceNo getSeqNo() { return curSeqNo; }
-    NetworkHandler* getSocket() {return &serverSocket;}
+    NetworkHandler* getSocket() { return &serverSocket; }
     void quit();
 };
 

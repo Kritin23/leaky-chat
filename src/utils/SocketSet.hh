@@ -3,10 +3,10 @@
 #include <poll.h>
 
 #include <deque>
+#include <optional>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <optional>
 
 #include "NetworkHandler.hh"
 

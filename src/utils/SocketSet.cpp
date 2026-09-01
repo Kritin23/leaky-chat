@@ -13,7 +13,8 @@ SID SocketSet::insert(NetworkHandler&& nh) {
 
 NetworkHandler* SocketSet::waitForRead() {
     static size_t idx = 0;
-    // std::cout << "Waiting for read on " << readPollfd.size() << " sockets" << std::endl;
+    // std::cout << "Waiting for read on " << readPollfd.size() << " sockets" <<
+    // std::endl;
     poll(readPollfd.data(), readPollfd.size(), 1);
     // std::cout << "Poll returned, checking for ready sockets" << std::endl;
     for (size_t count = 0; count < data.size();

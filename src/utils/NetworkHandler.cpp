@@ -4,13 +4,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <memory>
 #include <cerrno>
 #include <cstring>
+#include <iostream>
+#include <memory>
 
-
-#include <thread>
-#include <chrono>
 #include "MemBuffer.h"
 
 using namespace std::chrono_literals;
@@ -78,7 +76,7 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
     FD_SET(mSocket, &readfds);
 
     timeval timeout{};
-    if(noBlock) {
+    if (noBlock) {
         timeout.tv_sec = 0;
         timeout.tv_usec = 0;
     } else {
@@ -87,7 +85,8 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
     }
 
     std::cerr << "here\n";
-    int select_result = select(mSocket + 1, &readfds, nullptr, nullptr, &timeout);
+    int select_result =
+        select(mSocket + 1, &readfds, nullptr, nullptr, &timeout);
 
     if (select_result < 0) {
         if (errno == EINTR) {
@@ -104,8 +103,8 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
     char buffer[64 * 1024];
 
     ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
-    std::cerr << "[RECV] fd=" << mSocket
-          << " bytes=" << bytes_received << std::endl;
+    std::cerr << "[RECV] fd=" << mSocket << " bytes=" << bytes_received
+              << std::endl;
     if (bytes_received == 0) {
         std::cerr << "[RECV] peer closed fd=" << mSocket << std::endl;
         close();
@@ -117,7 +116,8 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
             return nullptr;
         }
 
-        std::cerr << "Failed to receive packet: " << std::strerror(errno) << std::endl;
+        std::cerr << "Failed to receive packet: " << std::strerror(errno)
+                  << std::endl;
         return nullptr;
     }
 
@@ -132,7 +132,7 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
 }
 
 void NetworkHandler::close() {
-    if(mSocket != -1) {
+    if (mSocket != -1) {
         ::close(mSocket);
         mConnected = false;
         mSocket = -1;

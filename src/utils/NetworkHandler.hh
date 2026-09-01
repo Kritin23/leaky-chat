@@ -63,7 +63,7 @@ class NetworkHandler {
 
     int connect();
     int sendPacket(const Packet& packet);
-    std::unique_ptr<Packet> receivePacket();
+    std::unique_ptr<Packet> receivePacket(bool noBlock=false);
     int getSocket() const { return mSocket; }
     int setSocket(int socket) {
         mSocket = socket;

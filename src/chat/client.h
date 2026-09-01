@@ -1,11 +1,13 @@
 #pragma once
 
 #include <deque>
+#include <map>
 #include <memory>
 #include <semaphore>
 #include <string>
 #include <string_view>
 
+#include "utils/E2ESession.hh"
 #include "utils/NetworkHandler.hh"
 #include "utils/Packet.hh"
 
@@ -18,8 +20,14 @@ class Client {
     std::string connected;
     std::deque<std::unique_ptr<Packet>> pktQueue;
     SequenceNo curSeqNo = 0;
+    std::map<std::string, E2ESession> mE2ESessions;
     bool waitUntilAck(SequenceNo seq);
     std::unique_ptr<Packet> waitForType(PacketType type);
+
+    bool initiateE2E(const std::string& username);
+    void handleE2EInit(const MessagePacket& packet);
+    void handleE2EAck(const MessagePacket& packet);
+    void handleE2EMessage(const MessagePacket& packet);
 
   public:
     Client() {}

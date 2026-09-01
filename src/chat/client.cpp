@@ -2,6 +2,7 @@
 
 #include <poll.h>
 
+#include <iostream>
 #include <memory>
 #include <semaphore>
 #include <thread>
@@ -10,6 +11,70 @@
 #include "utils/Packet.hh"
 
 namespace client_impl {
+bool Client::initiateE2E(const std::string& username) {
+    if (mE2ESessions.contains(username))
+        return false;
+
+    auto& session = mE2ESessions[username];
+    auto publicKey = session.crypto().getPublicKey();
+    std::string data(reinterpret_cast<const char*>(publicKey.data()),
+                     publicKey.size());
+    auto pkt =
+        MessagePacket(username, Payload{Payload::Type::__E2E_INIT__, data});
+    pkt.seq = curSeqNo++;
+    return serverSocket.sendPacket(pkt) == 0;
+}
+
+void Client::handleE2EInit(const MessagePacket& packet) {
+    const std::string& peer = packet.getSender();
+
+    std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
+                                            packet.getPayload().data.end());
+    auto& session = mE2ESessions[peer];
+    session.crypto().establish(peerPublicKey);
+    auto publicKey = session.crypto().getPublicKey();
+    std::string data(reinterpret_cast<const char*>(publicKey.data()),
+                     publicKey.size());
+    auto ack = MessagePacket(peer, Payload{Payload::Type::__E2E_ACK__, data});
+    ack.seq = curSeqNo++;
+    serverSocket.sendPacket(ack);
+}
+
+void Client::handleE2EAck(const MessagePacket& packet) {
+    const std::string& peer = packet.getSender();
+    auto it = mE2ESessions.find(peer);
+    if (it == mE2ESessions.end()) {
+        std::cerr << "Received E2E_ACK for unknown peer: " << peer << std::endl;
+        return;
+    }
+    std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
+                                            packet.getPayload().data.end());
+    it->second.crypto().establish(peerPublicKey);
+}
+
+void Client::handleE2EMessage(const MessagePacket& packet) {
+    const std::string& peer = packet.getSender();
+    auto it = mE2ESessions.find(peer);
+    if (it == mE2ESessions.end() || !it->second.crypto().isEstablished()) {
+        std::cerr << "No E2E session with " << peer << std::endl;
+        return;
+    }
+    const std::string& data = packet.getPayload().data;
+    MemBuffer buffer(data.size());
+    buffer.write_bytes(data.data(), data.size());
+    AESGCM::EncryptedData encrypted{};
+    buffer >> encrypted.nonce;
+    buffer >> encrypted.ciphertext;
+    buffer >> encrypted.tag;
+    try {
+        auto plaintext = it->second.crypto().decrypt(encrypted);
+        std::string message(reinterpret_cast<const char*>(plaintext.data()),
+                            plaintext.size());
+        std::cout << peer << ": " << message << std::endl;
+    } catch (const std::exception& e) {
+        std::cerr << "E2E decryption failed: " << e.what() << std::endl;
+    }
+}
 
 bool Client::waitUntilAck(SequenceNo seq) {
     while (true) {

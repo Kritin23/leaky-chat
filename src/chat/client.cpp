@@ -1,12 +1,18 @@
 #include "client.h"
-#include <memory>
 
+#include <poll.h>
+
+#include <memory>
+#include <semaphore>
+#include <thread>
+
+#include "UI.h"
 #include "utils/Packet.hh"
 
 bool Client::waitUntilAck(SequenceNo seq) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
-        if(!pkt) {
+        if (!pkt) {
             continue;
         }
         if (pkt->mPacketType == PacketType::CONTROL) {
@@ -26,7 +32,7 @@ bool Client::waitUntilAck(SequenceNo seq) {
 std::unique_ptr<Packet> Client::waitForType(PacketType type) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
-        if(!pkt) {
+        if (!pkt) {
             return nullptr;
         }
         if (pkt->mPacketType == type) {
@@ -50,7 +56,7 @@ bool Client::connectTo(std::string_view uname) {
     return true;
 }
 
-uint32_t Client::send(std::string_view msg) {
+SequenceNo Client::send(std::string_view msg) {
     SequenceNo seq = curSeqNo++;
     auto msgPkt = MessagePacket(connected, std::string(msg));
     msgPkt.seq = seq;
@@ -84,8 +90,7 @@ std::vector<std::string> Client::getUsers() {
         return {};
     }
 
-    auto userListPkt =
-        getDerivedPacket<UserListPacket>(std::move(reply));
+    auto userListPkt = getDerivedPacket<UserListPacket>(std::move(reply));
 
     const auto& users = userListPkt->getUserList();
 
@@ -93,8 +98,9 @@ std::vector<std::string> Client::getUsers() {
 }
 
 std::unique_ptr<Packet> Client::poll() {
-    if (pktQueue.empty())
-        return nullptr;
+    if (pktQueue.empty()) {
+        return serverSocket.receivePacket(true);
+    }
     auto pkt = std::move(pktQueue.front());
     pktQueue.pop_front();
     return pkt;
@@ -114,3 +120,88 @@ bool Client::setupConnection(std::string_view host, int port) {
     serverSocket = NetworkHandler(std::string(host), port);
     return serverSocket.connect() == 0;
 }
+
+namespace client {
+
+void networkMonitor(int sockfd, std::binary_semaphore& sem) {
+    while (running) {
+        pollfd fd = {sockfd, POLLIN, 0};
+        int num = poll(&fd, 1, 1000);
+        if (num > 0) {
+            sem.release();
+        }
+    }
+}
+
+void clientLoop(Client& client, UI& ui) {
+    while (!client.setupConnection("127.0.0.1", 10101))
+        ;
+
+    std::thread netmon{[&client]() {
+        networkMonitor(client.getSocket()->getFd(), clientBackendSem);
+    }};
+
+    while (running) {
+        clientBackendSem.acquire();
+
+        ClientRequest request;
+
+        while (running && ui.tryGetRequest(request)) {
+            switch (request.type) {
+                case ClientRequest::Type::Login: {
+                    bool success = client.login(request.username);
+
+                    if (success) {
+                        ui.editMessage(request.id, [](Message& msg) {
+                            msg.text += "\n  Login Succeeded";
+                        });
+                    } else {
+                        ui.editMessage(request.id, [](Message& msg) {
+                            msg.text += "\n  Login Failed. Please retry";
+                        });
+                    }
+
+                    break;
+                }
+
+                case ClientRequest::Type::SendMessage: {
+                    client.connectTo(request.username);
+                    SequenceNo id = client.send(request.message);
+                    break;
+                }
+
+                case ClientRequest::Type::GetUsers: {
+                    auto users = client.getUsers();
+                    ui.editMessage(request.id, [&users](Message& msg) {
+                        msg.text += "\nActive Users: \n";
+                        for (auto& usr : users) {
+                            msg.text += "  " + usr + "\n";
+                        }
+                        msg.text += "\n";
+                    });
+                    break;
+                }
+
+                case ClientRequest::Type::Quit:
+                    client.quit();
+                    running = false;
+                    break;
+            }
+        }
+
+        if (!running)
+            break;
+
+        while (auto pkt = client.poll()) {
+            if (pkt->mPacketType == PacketType::MESSAGE) {
+                auto msgPkt = getDerivedPacket<MessagePacket>(std::move(pkt));
+                ui.addMessage(
+                    Message({}, msgPkt->getSender(), msgPkt->getMessage()));
+            }
+        }
+    }
+
+    netmon.join();
+    ui.stop();
+}
+}  // namespace client

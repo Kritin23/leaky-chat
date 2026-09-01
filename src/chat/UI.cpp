@@ -4,10 +4,18 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <iostream>
+#include <mutex>
+#include <thread>
+
+#include "chat/client.h"
+#include "utils/Packet.hh"
 
 namespace {
+
+using namespace std::chrono_literals;
 
 class TerminalMode {
   public:
@@ -45,46 +53,43 @@ UI::~UI() {
 }
 
 void UI::start() {
-    if (running_)
+    if (running)
         return;
 
-    running_ = true;
-    thread_ = std::thread(&UI::run, this);
+    running = true;
+    uiThread = std::thread(&UI::run, this);
 }
 
 void UI::stop() {
-    if (!running_)
+    if (!running)
         return;
 
-    running_ = false;
+    running = false;
 
-    requestCV_.notify_all();
+    client::clientBackendSem.release();
 
-    if (thread_.joinable())
-        thread_.join();
+    if (uiThread.joinable())
+        uiThread.join();
 }
 
-void UI::pushEvent(UIEvent event) {
-    {
-        std::lock_guard lock(eventMutex_);
-        events_.push_back(std::move(event));
-    }
+void UI::addMessage(Message&& msg) {
+    std::lock_guard lock(messageMutex);
+    messages.emplace_back(std::move(msg));
+}
 
-    /*
-     * At this point the UI thread is sleeping in read().
-     *
-     * For the simple implementation below, it will wake periodically.
-     * A pipe/eventfd can be added later to wake it immediately.
-     */
+void UI::addRequest(ClientRequest&& req) {
+    std::lock_guard lock(requestMutex);
+    requests.emplace_back(std::move(req));
+    client::clientBackendSem.release();
 }
 
 bool UI::tryGetRequest(ClientRequest& request) {
-    std::unique_lock lock(requestMutex_);
-    if (!running_ || requests_.empty()) 
+    std::unique_lock lock(requestMutex);
+    if (!running || requests.empty())
         return false;
 
-    request = std::move(requests_.front());
-    requests_.pop_front();
+    request = std::move(requests.front());
+    requests.pop_front();
 
     return true;
 }
@@ -94,11 +99,10 @@ void UI::run() {
 
     redraw();
 
-    while (running_) {
-        processEvents();
+    while (running) {
         processInput();
 
-        if (running_)
+        if (running)
             redraw();
 
         // Avoid spinning at 100% CPU.
@@ -139,16 +143,16 @@ void UI::handleKey(char c) {
 
         case 127:
         case '\b':
-            if (cursor_ > 0) {
-                input_.erase(cursor_ - 1, 1);
-                --cursor_;
+            if (cursor > 0) {
+                input.erase(cursor - 1, 1);
+                --cursor;
             }
             return;
 
         // Ctrl-C.
         case 3:
-            running_ = false;
-            requestCV_.notify_all();
+            running = false;
+            client::clientBackendSem.release();
             return;
 
         default:
@@ -156,31 +160,30 @@ void UI::handleKey(char c) {
     }
 
     if (c >= 32 && c <= 126) {
-        input_.insert(cursor_, 1, c);
-        ++cursor_;
+        input.insert(cursor, 1, c);
+        ++cursor;
     }
 }
 
 void UI::submitInput() {
-    if (input_.empty())
+    if (input.empty())
         return;
 
-    std::string input = std::move(input_);
-    input_.clear();
-    cursor_ = 0;
-
+    std::string input = std::move(this->input);
     if (input[0] == '/')
         handleCommand(input);
     else if (input[0] == '@')
         handleMessage(input);
     else {
-        // Treat a plain message as a message to the selected partner.
-        if (!selectedPartner_.empty())
-            handleMessage("@" + selectedPartner_ + " " + input);
+        if (!selectedPartner.empty())
+            handleMessage("@" + selectedPartner + " " + input);
         else {
-            messages_.push_back({0, "", "No chat partner selected", false});
+            addMessage(Message("No chat partner selected"));
         }
     }
+
+    input.clear();
+    cursor = 0;
 }
 
 void UI::handleCommand(std::string_view input) {
@@ -190,14 +193,10 @@ void UI::handleCommand(std::string_view input) {
         request.type = ClientRequest::Type::Quit;
         request.id = ClientRequest::nextRequestId++;
 
-        {
-            std::lock_guard lock(requestMutex_);
-            requests_.push_back(std::move(request));
-        }
+        addMessage(Message({}, input));
+        addRequest(std::move(request));
 
-        requestCV_.notify_one();
-
-        running_ = false;
+        running = false;
         return;
     }
 
@@ -207,14 +206,8 @@ void UI::handleCommand(std::string_view input) {
         request.type = ClientRequest::Type::GetUsers;
         request.id = ClientRequest::nextRequestId++;
 
-        {
-            std::lock_guard lock(requestMutex_);
-            requests_.push_back(std::move(request));
-        }
-
-        requestCV_.notify_one();
-
-        commands_.push_back({std::string(input)});
+        addMessage(Message(request.id, input));
+        addRequest(std::move(request));
         return;
     }
 
@@ -225,37 +218,29 @@ void UI::handleCommand(std::string_view input) {
         if (username.empty())
             return;
 
-        username_ = username;
+        username = username;
 
         ClientRequest request;
         request.type = ClientRequest::Type::Login;
         request.id = ClientRequest::nextRequestId++;
         request.username = std::move(username);
 
-        {
-            std::lock_guard lock(requestMutex_);
-            requests_.push_back(std::move(request));
-        }
-
-        requestCV_.notify_one();
-
-        commands_.push_back({std::string(input)});
+        addMessage(Message(request.id, input));
+        addRequest(std::move(request));
         return;
     }
 
     // /chat username
     if (input.starts_with("/chat ")) {
         std::string username(input.substr(6));
+        addMessage(Message({}, input));
 
         if (!username.empty())
-            selectedPartner_ = std::move(username);
-
-        commands_.push_back({std::string(input)});
+            selectedPartner = std::move(username);
         return;
     }
 
-    messages_.push_back(
-        {0, "", "Unknown command: " + std::string(input), false});
+    addMessage(Message({}, "\033[31m" + std::string(input) + "\033[0m"));
 }
 
 void UI::handleMessage(std::string_view input) {
@@ -263,17 +248,15 @@ void UI::handleMessage(std::string_view input) {
     //
     //     @username message
     //
-
     if (input.empty() || input[0] != '@')
         return;
-
     const auto space = input.find(' ');
 
     if (space <= 1) {
         return;
     } else if (space == std::string_view::npos) {
         std::string_view recipient(input.substr(1, space - 1));
-        selectedPartner_ = recipient;
+        selectedPartner = recipient;
         return;
     }
     std::string recipient(input.substr(1, space - 1));
@@ -282,7 +265,7 @@ void UI::handleMessage(std::string_view input) {
     if (message.empty())
         return;
 
-    selectedPartner_ = recipient;
+    selectedPartner = recipient;
 
     ClientRequest request;
     request.type = ClientRequest::Type::SendMessage;
@@ -290,12 +273,8 @@ void UI::handleMessage(std::string_view input) {
     request.username = recipient;
     request.message = message;
 
-    {
-        std::lock_guard lock(requestMutex_);
-        requests_.push_back(request);
-    }
-
-    requestCV_.notify_one();
+    addMessage(Message(request.id, "You", message));
+    addRequest(std::move(request));
 
     /*
      * We don't have a MessageId yet because Client::send() happens
@@ -304,63 +283,6 @@ void UI::handleMessage(std::string_view input) {
      * A proper implementation should have the client return the
      * MessageId and then send a MessageSent event back to the UI.
      */
-}
-
-void UI::processEvents() {
-    std::deque<UIEvent> events;
-
-    {
-        std::lock_guard lock(eventMutex_);
-        events.swap(events_);
-    }
-
-    for (auto& event : events) {
-        switch (event.type) {
-            case UIEvent::Type::MessageReceived:
-                messages_.push_back(
-                    {event.messageId, event.username, event.message, false});
-                break;
-
-            case UIEvent::Type::MessageNacked:
-                for (auto& message : messages_) {
-                    if (message.id == event.messageId) {
-                        message.failed = true;
-                        break;
-                    }
-                }
-                break;
-
-            case UIEvent::Type::UsersReceived:
-                onlineUsers_ = std::move(event.users);
-                break;
-
-            case UIEvent::Type::LoginResult:
-                if (event.success) {
-                    username_ = event.username;
-                } else {
-                    messages_.push_back({0,
-                                         "Server",
-                                         "Login failed: Please retry (possibly "
-                                         "with a different username)",
-                                         false});
-                }
-                break;
-
-            case UIEvent::Type::Connected:
-                messages_.push_back({0,
-                                     "Server",
-                                     "You are connected. Please set a username",
-                                     false});
-
-            case UIEvent::Type::Disconnected:
-                running_ = false;
-                break;
-
-            case UIEvent::Type::Error:
-                messages_.push_back({0, "", "Error", false});
-                break;
-        }
-    }
 }
 
 void UI::render() {
@@ -375,25 +297,9 @@ void UI::render() {
 }
 
 void UI::renderHistory() {
-    for (const auto& command : commands_)
-        std::cout << "c: " << command.text << '\n';
-
-    if (!onlineUsers_.empty()) {
-        std::cout << "\nOnline users:\n";
-
-        for (const auto& user : onlineUsers_)
-            std::cout << "  " << user << '\n';
-
-        std::cout << '\n';
-    }
-
-    for (const auto& message : messages_) {
+    for (const auto& message : messages) {
         if (!message.sender.empty())
-            std::cout << "[" << message.sender << "] ";
-        else
-            std::cout << "UI";
-
-        std::cout << ": " << message.text;
+            std::cout << "[" << message.sender << "]:";
 
         if (message.failed)
             std::cout << " [FAILED]";
@@ -403,17 +309,17 @@ void UI::renderHistory() {
 }
 
 void UI::renderInput() {
-    if (!selectedPartner_.empty())
-        std::cout << "[" << selectedPartner_ << "] ";
+    if (!selectedPartner.empty())
+        std::cout << "[" << selectedPartner << "] ";
 
-    std::cout << "> " << input_;
+    std::cout << "> " << input;
 
     /*
      * Put the cursor back into the input buffer.
      *
      * This simple version assumes ASCII and a single-line input.
      */
-    const std::size_t charsAfterCursor = input_.size() - cursor_;
+    const std::size_t charsAfterCursor = input.size() - cursor;
 
     if (charsAfterCursor > 0)
         std::cout << "\033[" << charsAfterCursor << "D";

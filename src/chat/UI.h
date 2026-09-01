@@ -10,8 +10,7 @@
 #include <thread>
 #include <vector>
 
-using MessageId = std::uint32_t;
-using RequestId = std::uint32_t;
+#include "utils/Packet.hh"
 
 class ClientRequest {
   public:
@@ -19,32 +18,26 @@ class ClientRequest {
 
     Type type;
 
-    RequestId id;
+    SequenceNo id;
     std::string username;
     std::string message;
 
-    inline static RequestId nextRequestId = 1;
+    inline static SequenceNo nextRequestId = 1;
 };
 
-class UIEvent {
-  public:
-    enum class Type {
-        MessageReceived,
-        MessageNacked,
-        UsersReceived,
-        LoginResult,
-        Connected,
-        Disconnected,
-        Error
-    };
+struct Message {
+    std::optional<SequenceNo> id;
+    std::string sender;
+    std::string text;
+    bool failed = false;
 
-    Type type;
-
-    MessageId messageId{};
-    std::string username;
-    std::string message;
-    std::vector<std::string> users;
-    bool success{};
+    Message(std::string_view sv) : id{}, sender{}, text(sv) {}
+    Message(SequenceNo id, std::string_view text)
+        : id(id), text(text) {}
+    Message(SequenceNo id, std::string_view sender, std::string_view text)
+        : id(id), sender(sender), text(text) {}
+    
+    
 };
 
 class UI {
@@ -66,14 +59,6 @@ class UI {
     void stop();
 
     /*
-     * Called by the client thread.
-     *
-     * This function must be thread-safe. It does not render anything
-     * directly; it merely queues an event for the UI thread.
-     */
-    void pushEvent(UIEvent event);
-
-    /*
      * Called by the client thread or application shutdown code.
      */
     void disconnect();
@@ -85,6 +70,19 @@ class UI {
      */
     bool tryGetRequest(ClientRequest& request);
 
+    void addMessage(Message&& msg);
+
+    void editMessage(SequenceNo seq, auto transform) {
+        std::lock_guard lock(messageMutex);
+        for (auto it = messages.rbegin(); it != messages.rend(); it++) {
+            if (it->id == seq) {
+                transform(*it);
+            }
+        }
+    }
+
+    void addRequest(ClientRequest&& req);
+
   private:
     void run();
 
@@ -95,7 +93,6 @@ class UI {
     void executeCommand(std::string_view input);
     void sendMessage(std::string_view input);
 
-    void processEvents();
     void processInput();
 
     void handleCommand(std::string_view);
@@ -111,56 +108,19 @@ class UI {
     void redraw();
 
   private:
-    std::thread thread_;
+    std::thread uiThread;
 
-    bool running_ = false;
+    bool running = false;
 
-    /*
-     * ------------------------------------------------------------------
-     * UI -> Client
-     * ------------------------------------------------------------------
-     */
+    std::mutex requestMutex;
+    std::deque<ClientRequest> requests;
 
-    std::mutex requestMutex_;
-    std::condition_variable requestCV_;
-    std::deque<ClientRequest> requests_;
+    std::mutex messageMutex;
+    std::deque<Message> messages;
 
-    /*
-     * ------------------------------------------------------------------
-     * Client -> UI
-     * ------------------------------------------------------------------
-     */
+    std::string username;
+    std::string selectedPartner;
 
-    std::mutex eventMutex_;
-    std::deque<UIEvent> events_;
-
-    /*
-     * ------------------------------------------------------------------
-     * UI state -- accessed ONLY by UI thread
-     * ------------------------------------------------------------------
-     */
-
-    struct Message {
-        std::optional<MessageId> id;
-        std::string sender;
-        std::string text;
-        bool failed = false;
-    };
-
-    struct Command {
-        std::string text;
-    };
-
-    std::deque<Message> messages_;
-    std::deque<Command> commands_;
-
-    std::vector<std::string> onlineUsers_;
-
-    std::string username_;
-    std::string selectedPartner_;
-
-    std::string input_;
-    std::size_t cursor_ = 0;
-
-    bool connected_ = false;
+    std::string input;
+    std::size_t cursor = 0;
 };

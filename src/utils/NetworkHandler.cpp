@@ -8,8 +8,12 @@
 #include <cerrno>
 #include <cstring>
 
+
+#include <thread>
+#include <chrono>
 #include "MemBuffer.h"
 
+using namespace std::chrono_literals;
 
 NetworkHandler::~NetworkHandler() {
     close();
@@ -63,7 +67,7 @@ int NetworkHandler::connect() {
     return 0;
 }
 
-std::unique_ptr<Packet> NetworkHandler::receivePacket() {
+std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
     if (!mConnected) {
         // std::cerr << "Not connected to server." << std::endl;
         return nullptr;
@@ -74,9 +78,15 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     FD_SET(mSocket, &readfds);
 
     timeval timeout{};
-    timeout.tv_sec = 1;
-    timeout.tv_usec = 0;
+    if(noBlock) {
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 0;
+    } else {
+        timeout.tv_sec = 1;
+        timeout.tv_usec = 0;
+    }
 
+    std::cerr << "here\n";
     int select_result = select(mSocket + 1, &readfds, nullptr, nullptr, &timeout);
 
     if (select_result < 0) {
@@ -87,6 +97,7 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket() {
         std::cerr << "Select failed: " << std::strerror(errno) << std::endl;
         return nullptr;
     } else if (select_result == 0) {
+        std::cerr << "nullptr\n";
         return nullptr;
     }
 
@@ -95,7 +106,6 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket() {
     ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
     std::cerr << "[RECV] fd=" << mSocket
           << " bytes=" << bytes_received << std::endl;
-
     if (bytes_received == 0) {
         std::cerr << "[RECV] peer closed fd=" << mSocket << std::endl;
         close();

@@ -1,25 +1,24 @@
-// this class shall handle new connections, make networkHandlers for them, and put them in some sort of cross thread shared queue or similar for the looping thread to handle other stuff for now, later we can see if putting both logic in the same thread makes more sense
+// this class shall handle new connections, make networkHandlers for them, and
+// put them in some sort of cross thread shared queue or similar for the looping
+// thread to handle other stuff for now, later we can see if putting both logic
+// in the same thread makes more sense
 #pragma once
 
-#include "NetworkHandler.hh"
-#include "SharedVector.hh"
-#include "SocketSet.hh"
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include <cstdint>
 #include <memory>
-#include <string>
-#include <thread>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <fcntl.h>
+
+#include "NetworkHandler.hh"
+#include "SocketSet.hh"
 
 struct Connection {
-
     std::unique_ptr<NetworkHandler> handler;
 
-    Connection(
-        std::unique_ptr<NetworkHandler> handler)
-          : handler(std::move(handler)) {}
+    Connection(std::unique_ptr<NetworkHandler> handler)
+        : handler(std::move(handler)) {}
 };
 
 class ConnectionSetter {
@@ -32,37 +31,32 @@ class ConnectionSetter {
     SocketSet& mConnections;
     bool mRunning = false;
 
-
   public:
     ConnectionSetter(uint16_t port, SocketSet& connections)
-        : mPort(port),
-          mConnections(connections) {
+        : mPort(port), mConnections(connections) {
+        mSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (mSocket < 0) {
+            throw std::runtime_error("Failed to create socket");
+        }
+        fcntl(mSocket, F_SETFL, O_NONBLOCK);
+        // mOwnHandler.setSocket(mSocket);
 
-            mSocket = socket(AF_INET, SOCK_STREAM, 0);
-            if (mSocket < 0) {
-                throw std::runtime_error("Failed to create socket");
-            }
-            fcntl(mSocket, F_SETFL, O_NONBLOCK);
-            // mOwnHandler.setSocket(mSocket);
+        mAddress.sin_family = AF_INET;
+        mAddress.sin_addr.s_addr = INADDR_ANY;
+        mAddress.sin_port = htons(mPort);
 
-            mAddress.sin_family = AF_INET;
-            mAddress.sin_addr.s_addr = INADDR_ANY;
-            mAddress.sin_port = htons(mPort);
-
-            if (::bind(mSocket, (struct sockaddr*)&mAddress, sizeof(mAddress)) < 0) {
-                throw std::runtime_error("Failed to bind socket");
-            }
-            if (::listen(mSocket, SOMAXCONN) < 0) {
-                throw std::runtime_error(
-                    "Failed to listen on socket");
-            }
-
-          }
+        if (::bind(mSocket, (struct sockaddr*)&mAddress, sizeof(mAddress)) <
+            0) {
+            throw std::runtime_error("Failed to bind socket");
+        }
+        if (::listen(mSocket, SOMAXCONN) < 0) {
+            throw std::runtime_error("Failed to listen on socket");
+        }
+    }
 
     ~ConnectionSetter();
 
     int getConnections();
 
     int processConnections();
-
 };

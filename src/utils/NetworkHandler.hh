@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <memory>
 #include <string>
 
@@ -34,7 +33,6 @@ class NetworkHandler {
           mInitialized(other.mInitialized),
           mConnected(other.mConnected),
           mRecvBuffer(std::move(other.mRecvBuffer)) {
-
         other.mSocket = -1;
         other.mConnected = false;
     }
@@ -63,7 +61,7 @@ class NetworkHandler {
 
     int connect();
     int sendPacket(const Packet& packet);
-    std::unique_ptr<Packet> receivePacket(bool noBlock=false);
+    std::unique_ptr<Packet> receivePacket(bool noBlock = false);
     int getSocket() const { return mSocket; }
     int setSocket(int socket) {
         mSocket = socket;
@@ -71,6 +69,6 @@ class NetworkHandler {
         return 0;
     }
     int getFd() const { return mSocket; }
-    bool connected() const {return mConnected;}
+    bool connected() const { return mConnected; }
     void close();
 };

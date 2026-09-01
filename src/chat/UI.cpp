@@ -4,14 +4,12 @@
 #include <unistd.h>
 
 #include <cerrno>
-#include <chrono>
 #include <cstdio>
 #include <iostream>
 #include <mutex>
 #include <thread>
 
 #include "chat/client.h"
-#include "utils/Packet.hh"
 
 namespace {
 
@@ -299,11 +297,12 @@ void UI::render() {
 void UI::renderHistory() {
     for (const auto& message : messages) {
         if (!message.sender.empty())
-            std::cout << "[" << message.sender << "]:";
+            std::cout << "[" << message.sender << "]: ";
 
         if (message.failed)
             std::cout << " [FAILED]";
 
+        std::cout << message.text;
         std::cout << '\n';
     }
 }

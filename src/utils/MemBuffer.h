@@ -2,10 +2,22 @@
 
 #include <concepts>
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
+
+struct Payload {
+    enum class Type : std::uint8_t {
+        __PLAIN_TEXT__,
+        __E2E_INIT__,
+        __E2E_ACK__,
+        __E2E_MSG__
+    };
+    Type type;
+    std::string data;
+};
 
 class MemBuffer {
   private:
@@ -58,6 +70,7 @@ class MemBuffer {
 
     MemBuffer& operator<<(std::string_view sv);
     MemBuffer& operator<<(std::vector<std::string> vec);
+    MemBuffer& operator<<(Payload payload);
 
     void consume(size_t len);
 
@@ -91,6 +104,7 @@ class MemBuffer {
 
     MemBuffer& operator>>(std::string& str);
     MemBuffer& operator>>(std::vector<std::string>& vec);
+    MemBuffer& operator>>(Payload& payload);
 
     size_t read(void* dest, size_t len);
 };

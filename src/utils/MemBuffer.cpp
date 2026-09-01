@@ -4,6 +4,7 @@
 #include <string>
 #include <cstring>
 #include <stdexcept>
+#include "utils/Packet.hh"
 
 void MemBuffer::resize(size_t sz) {
     if (size() < sz) {
@@ -51,6 +52,12 @@ MemBuffer& MemBuffer::operator<<(std::vector<std::string> vec) {
     return *this;
 }
 
+MemBuffer& MemBuffer::operator<<(Payload payload) {
+    *this << (uint8_t)payload.type;
+    *this << payload.data;
+    return *this;
+}
+
 void MemBuffer::consume(size_t len) {
     if (len > size()) {
         throw std::out_of_range("MemBuffer::consume underflow");
@@ -90,5 +97,13 @@ MemBuffer& MemBuffer::operator>>(std::vector<std::string>& vec) {
     for (auto& str : vec) {
         *this >> str;
     }
+    return *this;
+}
+
+MemBuffer& MemBuffer::operator>>(Payload& payload) {
+    uint8_t type;
+    *this >> type;
+    payload.type = static_cast<Payload::Type>(type);
+    *this >> payload.data;
     return *this;
 }

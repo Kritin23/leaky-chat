@@ -65,24 +65,30 @@ std::unique_ptr<T> getDerivedPacket(std::unique_ptr<Packet>&& pkt) {
 class MessagePacket : public Packet {
     std::string mSender;
     std::string mReceiver;
-    std::string mMessage;
+    Payload mPayload;
 
   public:
-    MessagePacket(const std::string& sender,
-                  const std::string receiver,
-                  const std::string& message)
-        : mSender(sender), mReceiver(receiver), mMessage(message) {}
-
     MessagePacket(const std::string& username, const std::string& message)
-        : MessagePacket("", username, message) {
+        : mReceiver(username),
+          mPayload(Payload::Type::__PLAIN_TEXT__, message) {
         mPacketType = PacketType::MESSAGE;
     }
+
+    MessagePacket(const std::string& username, const Payload& payload)
+        : mReceiver(username), mPayload(payload) {
+        mPacketType = PacketType::MESSAGE;
+    }
+
     MessagePacket() { mPacketType = PacketType::MESSAGE; }
+
     void serialise(MemBuffer& ptr) const override;
     void deserialise(MemBuffer& ptr) override;
+
     const std::string& getSender() const { return mSender; }
     const std::string& getReceiver() const { return mReceiver; }
-    const std::string& getMessage() const { return mMessage; }
+    const std::string& getMessage() const { return mPayload.data; }
+    const Payload& getPayload() const { return mPayload; }
+    Payload& getPayload() { return mPayload; }
 
     void setSender(const std::string& uname) { mSender = uname; }
 };

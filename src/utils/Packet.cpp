@@ -57,14 +57,14 @@ void MessagePacket::serialise(MemBuffer& ptr) const {
     this->Packet::serialise(ptr);
     ptr << mSender;
     ptr << mReceiver;
-    ptr << mMessage;
+    ptr << mPayload;
 }
 
 void MessagePacket::deserialise(MemBuffer& ptr) {
     this->Packet::deserialise(ptr);
     ptr >> mSender;
     ptr >> mReceiver;
-    ptr >> mMessage;
+    ptr >> mPayload;
 }
 
 void RequestPacket::serialise(MemBuffer& ptr) const {

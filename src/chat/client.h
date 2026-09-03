@@ -23,9 +23,10 @@ class Client {
     std::map<std::string, E2ESession> mE2ESessions;
     bool waitUntilAck(SequenceNo seq);
     std::unique_ptr<Packet> waitForType(PacketType type);
+    std::unique_ptr<Packet> waitForPred(auto pred);
 
     bool initiateE2E(const std::string& username);
-    void handleE2EInit(const MessagePacket& packet);
+    bool handleE2EInit(const MessagePacket& packet); // Returns whether connection is established
     void handleE2EAck(const MessagePacket& packet);
     void handleE2EMessage(const MessagePacket& packet);
 
@@ -34,8 +35,11 @@ class Client {
     bool setupConnection(std::string_view host, int port);
     bool login(std::string_view uname);
     bool connectTo(std::string_view uname);
+    bool setupE2E(const std::string& uname);
+    void handleE2EPacket(const std::unique_ptr<MessagePacket>& pkt);
     SequenceNo send(std::string_view msg);
     std::vector<std::string> getUsers();
+    std::string decryptMessage(const std::unique_ptr<MessagePacket>& pkt);
     std::unique_ptr<Packet> poll();
     SequenceNo getSeqNo() { return curSeqNo; }
     NetworkHandler* getSocket() { return &serverSocket; }

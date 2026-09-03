@@ -44,7 +44,6 @@ class TerminalMode {
     bool active_ = false;
 };
 
-
 UI::~UI() {
     stop();
 }
@@ -215,8 +214,6 @@ void UI::handleCommand(std::string_view input) {
         if (username.empty())
             return;
 
-        username = username;
-
         ClientRequest request;
         request.type = ClientRequest::Type::Login;
         request.id = ClientRequest::nextRequestId++;
@@ -234,6 +231,21 @@ void UI::handleCommand(std::string_view input) {
 
         if (!username.empty())
             selectedPartner = std::move(username);
+        return;
+    }
+
+    if (input.starts_with("/e2e ")) {
+        std::string username(input.substr(5));
+        if (username.empty())
+            return;
+
+        ClientRequest request;
+        request.type = ClientRequest::Type::E2E;
+        request.id = ClientRequest::nextRequestId++;
+        request.username = std::move(username);
+
+        addMessage(Message(request.id, input));
+        addRequest(std::move(request));
         return;
     }
 
@@ -336,4 +348,4 @@ void UI::redraw() {
     render();
 }
 
-}  // namespace
+}  // namespace client_impl

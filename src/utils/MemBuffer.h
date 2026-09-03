@@ -17,6 +17,10 @@ struct Payload {
     };
     Type type;
     std::string data;
+
+    bool isE2EControl() const {
+        return type == Type::__E2E_INIT__ || type == Type::__E2E_ACK__;
+    }
 };
 
 class MemBuffer {

@@ -1,27 +1,26 @@
 #include "ConnectionSetter.hh"
 
 #include <arpa/inet.h>
+#include <iostream>
 #include <sys/socket.h>
 #include <unistd.h>
-
 #include <cerrno>
 #include <cstring>
-#include <iostream>
+
 
 int ConnectionSetter::getConnections() {
     sockaddr_in clientAddress{};
     socklen_t clientAddressLength = sizeof(clientAddress);
 
-    int clientSocket =
-        accept(mSocket, (struct sockaddr*)&clientAddress, &clientAddressLength);
+    int clientSocket = accept(mSocket, (struct sockaddr*)&clientAddress, &clientAddressLength);
 
     if (clientSocket < 0) {
         if (errno == EAGAIN || errno == EWOULDBLOCK) {
             return -1;
         }
 
-        std::cerr << "Failed to accept new connection: " << std::strerror(errno)
-                  << std::endl;
+        std::cerr << "Failed to accept new connection: "
+                  << std::strerror(errno) << std::endl;
         return -1;
     }
 
@@ -30,15 +29,11 @@ int ConnectionSetter::getConnections() {
     NetworkHandler handler(clientIP, mPort);
     handler.setSocket(clientSocket);
 
-    if (handler.performServerHandshake() != 0) {
-        handler.close();
-        return -1;
-    }
-
     SID sid = mConnections.insert(std::move(handler));
 
-    std::cerr << "New connection established with: " << clientIP << ":"
-              << ntohs(clientAddress.sin_port) << " SID=" << sid << std::endl;
+    std::cerr << "New connection established with: "
+              << clientIP << ":" << ntohs(clientAddress.sin_port)
+              << " SID=" << sid << std::endl;
 
     return 0;
 }

@@ -4,8 +4,8 @@
 #include "client.h"
 
 int main() {
-    client_impl::UI ui;
-    client_impl::Client client;
+    UI ui;
+    Client client;
 
     /*
      * The UI owns the terminal and runs on its own thread.
@@ -15,7 +15,7 @@ int main() {
     /*
      * The Client owns the socket and runs entirely on this thread.
      */
-    std::thread clientThread([&] { client_impl::clientLoop(client, ui); });
+    std::thread clientThread([&] { client::clientLoop(client, ui); });
 
     /*
      * Wait for the client thread to finish.

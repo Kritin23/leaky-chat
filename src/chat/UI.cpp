@@ -11,7 +11,7 @@
 
 #include "chat/client.h"
 
-namespace client_impl {
+namespace {
 
 using namespace std::chrono_literals;
 
@@ -44,6 +44,7 @@ class TerminalMode {
     bool active_ = false;
 };
 
+}  // namespace
 
 UI::~UI() {
     stop();
@@ -63,7 +64,7 @@ void UI::stop() {
 
     running = false;
 
-    client_impl::clientBackendSem.release();
+    client::clientBackendSem.release();
 
     if (uiThread.joinable())
         uiThread.join();
@@ -77,7 +78,7 @@ void UI::addMessage(Message&& msg) {
 void UI::addRequest(ClientRequest&& req) {
     std::lock_guard lock(requestMutex);
     requests.emplace_back(std::move(req));
-    client_impl::clientBackendSem.release();
+    client::clientBackendSem.release();
 }
 
 bool UI::tryGetRequest(ClientRequest& request) {
@@ -149,7 +150,7 @@ void UI::handleKey(char c) {
         // Ctrl-C.
         case 3:
             running = false;
-            client_impl::clientBackendSem.release();
+            client::clientBackendSem.release();
             return;
 
         default:
@@ -274,7 +275,7 @@ void UI::handleMessage(std::string_view input) {
     addRequest(std::move(request));
 
     /*
-     * We don't have a MessageId yet because client_impl::send() happens
+     * We don't have a MessageId yet because Client::send() happens
      * asynchronously on the client thread.
      *
      * A proper implementation should have the client return the
@@ -335,5 +336,3 @@ void UI::redraw() {
     std::cout << "\033[?25l";
     render();
 }
-
-}  // namespace

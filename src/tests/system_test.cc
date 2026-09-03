@@ -14,7 +14,7 @@ void runServer() {
 }
 
 void runClient1() {
-    client_impl::Client client;
+    Client client;
 
     if (!client.setupConnection("127.0.0.1", 10101)) {
         std::cerr << "Client 1 failed to connect to server." << std::endl;
@@ -68,7 +68,7 @@ void runClient1() {
 }
 
 void runClient2() {
-    client_impl::Client client;
+    Client client;
 
     if (!client.setupConnection("127.0.0.1", 10101)) {
         std::cerr << "Client 2 failed to connect to server." << std::endl;

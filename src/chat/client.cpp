@@ -8,6 +8,7 @@
 #include <thread>
 
 #include "UI.h"
+#include "utils/MemBuffer.h"
 #include "utils/Packet.hh"
 
 namespace client_impl {
@@ -16,64 +17,31 @@ bool Client::initiateE2E(const std::string& username) {
         return false;
 
     auto& session = mE2ESessions[username];
-    auto publicKey = session.crypto().getPublicKey();
-    std::string data(reinterpret_cast<const char*>(publicKey.data()),
-                     publicKey.size());
-    auto pkt =
-        MessagePacket(username, Payload{Payload::Type::__E2E_INIT__, data});
+    auto pkt = MessagePacket(username, *session.initiate());
     pkt.seq = curSeqNo++;
     return serverSocket.sendPacket(pkt) == 0;
 }
 
-void Client::handleE2EInit(const MessagePacket& packet) {
+bool Client::handleE2EInit(const MessagePacket& packet) {
     const std::string& peer = packet.getSender();
 
     std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
                                             packet.getPayload().data.end());
     auto& session = mE2ESessions[peer];
-    session.crypto().establish(peerPublicKey);
-    auto publicKey = session.crypto().getPublicKey();
-    std::string data(reinterpret_cast<const char*>(publicKey.data()),
-                     publicKey.size());
-    auto ack = MessagePacket(peer, Payload{Payload::Type::__E2E_ACK__, data});
-    ack.seq = curSeqNo++;
-    serverSocket.sendPacket(ack);
+    auto response = session.handleInit(packet.getPayload());
+    if (response) {
+        auto ack = MessagePacket(peer, *response);
+        ack.seq = curSeqNo++;
+        serverSocket.sendPacket(ack);
+        return true;
+    }
+    return false;
 }
 
 void Client::handleE2EAck(const MessagePacket& packet) {
     const std::string& peer = packet.getSender();
-    auto it = mE2ESessions.find(peer);
-    if (it == mE2ESessions.end()) {
-        std::cerr << "Received E2E_ACK for unknown peer: " << peer << std::endl;
-        return;
-    }
-    std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
-                                            packet.getPayload().data.end());
-    it->second.crypto().establish(peerPublicKey);
-}
-
-void Client::handleE2EMessage(const MessagePacket& packet) {
-    const std::string& peer = packet.getSender();
-    auto it = mE2ESessions.find(peer);
-    if (it == mE2ESessions.end() || !it->second.crypto().isEstablished()) {
-        std::cerr << "No E2E session with " << peer << std::endl;
-        return;
-    }
-    const std::string& data = packet.getPayload().data;
-    MemBuffer buffer(data.size());
-    buffer.write_bytes(data.data(), data.size());
-    AESGCM::EncryptedData encrypted{};
-    buffer >> encrypted.nonce;
-    buffer >> encrypted.ciphertext;
-    buffer >> encrypted.tag;
-    try {
-        auto plaintext = it->second.crypto().decrypt(encrypted);
-        std::string message(reinterpret_cast<const char*>(plaintext.data()),
-                            plaintext.size());
-        std::cout << peer << ": " << message << std::endl;
-    } catch (const std::exception& e) {
-        std::cerr << "E2E decryption failed: " << e.what() << std::endl;
-    }
+    auto session = mE2ESessions[peer];
+    session.handleAck(packet.getPayload());
 }
 
 bool Client::waitUntilAck(SequenceNo seq) {
@@ -96,6 +64,20 @@ bool Client::waitUntilAck(SequenceNo seq) {
     }
 }
 
+std::unique_ptr<Packet> Client::waitForPred(auto pred) {
+    while (true) {
+        auto pkt = serverSocket.receivePacket();
+        if (!pkt) {
+            return nullptr;
+        }
+        if (pred(pkt)) {
+            return pkt;
+        } else {
+            pktQueue.push_back(std::move(pkt));
+        }
+    }
+}
+
 std::unique_ptr<Packet> Client::waitForType(PacketType type) {
     while (true) {
         auto pkt = serverSocket.receivePacket();
@@ -107,6 +89,49 @@ std::unique_ptr<Packet> Client::waitForType(PacketType type) {
         } else {
             pktQueue.push_back(std::move(pkt));
         }
+    }
+}
+
+bool Client::setupE2E(const std::string& uname) {
+    if (!initiateE2E(uname))
+        return false;
+    auto isE2ePkt = [&uname](const std::unique_ptr<Packet>& pkt) {
+        if (pkt->mPacketType != PacketType::MESSAGE)
+            return false;
+        auto msg = (MessagePacket*)(pkt.get());
+        auto pl = msg->getPayload();
+        if ((pl.type == Payload::Type::__E2E_ACK__ ||
+             pl.type == Payload::Type::__E2E_INIT__) &&
+            msg->getSender() == uname) {
+            return true;
+        } else {
+            return false;
+        }
+    };
+    auto pkt = waitForPred(isE2ePkt);
+    auto msgPkt = getDerivedPacket<MessagePacket>(std::move(pkt));
+    if (msgPkt->getPayload().type == Payload::Type::__E2E_INIT__) {
+        if (handleE2EInit(*msgPkt)) {
+            return true;
+        } else {
+            auto ackPkt = waitForPred(isE2ePkt);
+            auto ackMsgPkt = getDerivedPacket<MessagePacket>(std::move(ackPkt));
+            handleE2EAck(*ackMsgPkt);
+            return true;
+        }
+    } else if (msgPkt->getPayload().type == Payload::Type::__E2E_ACK__) {
+        handleE2EAck(*msgPkt);
+        return true;
+    }
+    return false;
+}
+
+void Client::handleE2EPacket(const std::unique_ptr<MessagePacket>& pkt) {
+    Payload pl = pkt->getPayload();
+    if (pl.type == Payload::Type::__E2E_INIT__) {
+        handleE2EInit(*pkt);
+    } else if (pl.type == Payload::Type::__E2E_ACK__) {
+        handleE2EAck(*pkt);
     }
 }
 
@@ -125,7 +150,8 @@ bool Client::connectTo(std::string_view uname) {
 
 SequenceNo Client::send(std::string_view msg) {
     SequenceNo seq = curSeqNo++;
-    auto msgPkt = MessagePacket(connected, std::string(msg));
+    auto session = mE2ESessions[connected];
+    auto msgPkt = MessagePacket(connected, session.encrypt(msg));
     msgPkt.seq = seq;
     serverSocket.sendPacket(msgPkt);
     return seq;
@@ -171,6 +197,12 @@ std::unique_ptr<Packet> Client::poll() {
     auto pkt = std::move(pktQueue.front());
     pktQueue.pop_front();
     return pkt;
+}
+
+std::string Client::decryptMessage(const std::unique_ptr<MessagePacket>& pkt) {
+    const std::string peer = pkt->getSender();
+    auto session = mE2ESessions[peer];
+    return session.decrypt(pkt->getPayload());
 }
 
 void Client::quit() {
@@ -222,7 +254,8 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
                         });
                     } else {
                         ui.editMessage(request.id, [](Message& msg) {
-                            msg.text += "\n  Login Failed. Please retry";
+                            msg.text +=
+                                "\n  \033[31mLogin Failed. Please retry\033[0m";
                         });
                     }
 
@@ -247,6 +280,21 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
                     break;
                 }
 
+                case ClientRequest::Type::E2E: {
+                    bool success = client.setupE2E(request.username);
+                    if (success) {
+                        ui.editMessage(request.id, [](Message& msg) {
+                            msg.text += "\n E2E Connection Succeeded";
+                        });
+                    } else {
+                        ui.editMessage(request.id, [](Message& msg) {
+                            msg.text += "\n E2E Connection Failed";
+                        });
+                    }
+
+                    break;
+                }
+
                 case ClientRequest::Type::Quit:
                     client.quit();
                     running = false;
@@ -260,13 +308,16 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
         while (auto pkt = client.poll()) {
             if (pkt->mPacketType == PacketType::MESSAGE) {
                 auto msgPkt = getDerivedPacket<MessagePacket>(std::move(pkt));
-                ui.addMessage(
-                    Message({}, msgPkt->getSender(), msgPkt->getMessage()));
+                if (msgPkt->getPayload().isE2EControl()) {
+                    client.handleE2EPacket(msgPkt);
+                } else {
+                    std::string msg = client.decryptMessage(msgPkt);
+                    ui.addMessage(Message({}, msgPkt->getSender(), msg));
+                }
             }
         }
     }
 
     netmon.join();
-    ui.stop();
 }
 }  // namespace client_impl

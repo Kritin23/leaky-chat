@@ -5,6 +5,7 @@ add_library(utils STATIC
     Packet.cpp
     SocketSet.cpp
     ConnectionSetter.cpp
+    E2ESession.cc
 )
 target_include_directories(utils
     PUBLIC

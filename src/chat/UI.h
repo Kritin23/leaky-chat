@@ -13,7 +13,7 @@ namespace client_impl {
 
 class ClientRequest {
   public:
-    enum class Type { Login, SendMessage, GetUsers, Quit };
+    enum class Type { Login, SendMessage, GetUsers, E2E, Quit };
 
     Type type;
 

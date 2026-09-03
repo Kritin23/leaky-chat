@@ -22,6 +22,8 @@ class NetworkHandler {
     std::unique_ptr<CryptoSession> mCrypto;
     CryptoState mCryptoState = CryptoState::DISCONNECTED;
 
+    ssize_t receiveBytes(void* buffer, size_t size);
+
   public:
     NetworkHandler(std::string host, int port)
         : mHost(host), mPort(port), mInitialized(true) {}

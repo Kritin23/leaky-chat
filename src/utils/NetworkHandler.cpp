@@ -30,8 +30,11 @@ ssize_t NetworkHandler::receiveBytes(void* buffer, size_t size) {
         if (bytes > 0) {
             received += bytes;
         } else if (bytes == 0) {
+            // std::cerr << 
             return -1;
         } else if (errno != EAGAIN && errno != EWOULDBLOCK && errno != EINTR) {
+            std::cerr << "recieved error: " << errno << std::endl;
+            exit(1);
             return -1;
         } else {
             continue;
@@ -44,12 +47,25 @@ ssize_t NetworkHandler::receiveBytes(void* buffer, size_t size) {
 int NetworkHandler::performClientCertificateAuthentication() {
     char buffer[64 * 1024];
 
+    std::cerr << "checking the socket " << mSocket << std::endl;
+
+    // ssize_t bytes_received = receiveBytes(buffer, sizeof(buffer));
     ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
 
+    if(bytes_received ==0){
+        std::cerr << "brudda"<<std::endl;
+        exit(1);
+    }
+
     if (bytes_received <= 0) {
+        std::cerr << bytes_received << std::endl;
+        exit(1);
         std::cerr << "Failed to receive server certificate." << std::endl;
+        // sleep(2);
         return -1;
     }
+    std::cerr << "yo"<<std::endl;
+    // exit(1);
 
     MemBuffer certificateBuffer(bytes_received);
     certificateBuffer.write_bytes(buffer, static_cast<size_t>(bytes_received));
@@ -128,16 +144,19 @@ int NetworkHandler::performServerCertificateAuthentication() {
     ssize_t bytes_sent =
         send(mSocket, certificateBuffer.data(), certificateBuffer.size(), 0);
 
+    std::cerr << "sent " << bytes_sent << std::endl;
+    // exit(1);
+
     if (bytes_sent < 0) {
         std::cerr << "Failed to send server certificate." << std::endl;
         return -1;
     }
 
     // Receive client challenge.
+    // char buffer[64 * 1024];
     std::vector<std::uint8_t> challengeBytes(sizeof(size_t) + 32);
 
-    ssize_t bytes_received =
-        receiveBytes(challengeBytes.data(), challengeBytes.size());
+    ssize_t bytes_received = receiveBytes(challengeBytes.data(), challengeBytes.size());
 
     if (bytes_received <= 0) {
         std::cerr << "Failed to receive challenge." << std::endl;

@@ -198,8 +198,8 @@ void networkMonitor(int sockfd, std::binary_semaphore& sem) {
     }
 }
 
-void clientLoop(Client& client, UI& ui) {
-    while (!client.setupConnection("127.0.0.1", 10101))
+void clientLoop(Client& client, UI& ui, std::string host, int port) {
+    while (!client.setupConnection(host, port))
         ;
 
     std::thread netmon{[&client]() {

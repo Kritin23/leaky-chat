@@ -50,5 +50,5 @@ inline bool running = true;
 
 void networkMonitor(int sockfd, std::binary_semaphore& sem);
 
-void clientLoop(Client& client, UI& ui);
+void clientLoop(Client& client, UI& ui, std::string host, int port);
 };  // namespace client_impl

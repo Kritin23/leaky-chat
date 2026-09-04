@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 #include <cerrno>
+#include <chrono>
 #include <cstring>
 #include <fstream>
 #include <iostream>
@@ -133,9 +134,10 @@ int NetworkHandler::performServerCertificateAuthentication() {
     }
 
     // Receive client challenge.
-    char buffer[64 * 1024];
+    std::vector<std::uint8_t> challengeBytes(sizeof(size_t) + 32);
 
-    ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
+    ssize_t bytes_received =
+        receiveBytes(challengeBytes.data(), challengeBytes.size());
 
     if (bytes_received <= 0) {
         std::cerr << "Failed to receive challenge." << std::endl;
@@ -143,7 +145,7 @@ int NetworkHandler::performServerCertificateAuthentication() {
     }
 
     MemBuffer challengeBuffer(bytes_received);
-    challengeBuffer.write_bytes(buffer, static_cast<size_t>(bytes_received));
+    challengeBuffer.write_bytes(challengeBytes.data(), challengeBytes.size());
 
     try {
         std::vector<std::uint8_t> challenge;

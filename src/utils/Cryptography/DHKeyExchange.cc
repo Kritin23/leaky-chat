@@ -3,7 +3,7 @@
 #include <openssl/rand.h>
 
 #include <stdexcept>
-
+#include <iostream>
 namespace {
 
 constexpr const char* GROUP14_PRIME =
@@ -50,6 +50,30 @@ DHKeyExchange::DHKeyExchange()
     }
 
     BN_free(publicKey);
+}
+
+DHKeyExchange::DHKeyExchange(DHKeyExchange&& other) noexcept
+    : mPrivateKey(other.mPrivateKey),
+      mPublicKey(other.mPublicKey)
+{
+    other.mPrivateKey = nullptr;
+    other.mPublicKey = nullptr;
+}
+
+DHKeyExchange& DHKeyExchange::operator=(DHKeyExchange&& other) noexcept
+{
+    if (this != &other) {
+        BN_free(mPublicKey);
+        BN_clear_free(mPrivateKey);
+
+        mPrivateKey = other.mPrivateKey;
+        mPublicKey = other.mPublicKey;
+
+        other.mPrivateKey = nullptr;
+        other.mPublicKey = nullptr;
+    }
+
+    return *this;
 }
 
 DHKeyExchange::~DHKeyExchange()

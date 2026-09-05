@@ -5,6 +5,7 @@
 #include <openssl/crypto.h>
 
 #include <stdexcept>
+#include <iostream>
 
 std::vector<std::uint8_t>
 CryptoSession::getPublicKey() const

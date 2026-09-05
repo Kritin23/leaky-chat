@@ -20,6 +20,8 @@ class DHKeyExchange {
   public:
     DHKeyExchange();
     ~DHKeyExchange();
+    DHKeyExchange(DHKeyExchange&& other) noexcept;
+    DHKeyExchange& operator=(DHKeyExchange&& other) noexcept;
 
     std::vector<std::uint8_t> getPublicKey() const;
 

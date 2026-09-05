@@ -39,6 +39,23 @@ std::optional<Payload> E2ESession::initiate() {
 
 std::optional<Payload> E2ESession::handleInit(Payload pl) {
     std::cerr << "handleInit:State is " << (int)sessState << "\n";
+std::optional<Payload> E2ESession::refresh() {
+    oldCrypto = CryptoSession();
+    std::swap(oldCrypto, mCrypto);
+    std::vector<uint8_t> publicKey = mCrypto.getPublicKey();
+    uint64_t timestamp =
+        std::chrono::system_clock::now().time_since_epoch().count();
+    E2EInit initpl = {.seqno = ++sequenceNo,
+                      .timestamp = timestamp,
+                      .key = std::move(publicKey)};
+    Payload pl;
+    pl << initpl;
+    sessState = E2EState::REFRESH_SENT;
+    sessTimestamp = timestamp;
+    return pl;
+}
+
+std::optional<Payload> E2ESession::handleInit(Payload pl) {
     E2EInit initpl;
     pl >> initpl;
     // if (initpl.seqno > sequenceNo ||

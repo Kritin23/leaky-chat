@@ -166,6 +166,7 @@ class E2ESession {
     uint32_t seqNo() const { return sequenceNo; }
 
     std::optional<Payload> initiate();
+    std::optional<Payload> refresh();
     std::optional<Payload> handleInit(Payload pl);
     std::optional<Payload> handleAck(Payload pl);
 
@@ -173,4 +174,22 @@ class E2ESession {
 
     Payload encrypt(std::string_view str);
     std::string decrypt(const Payload& pl);
+
+    bool isStale() const {
+        using namespace std::chrono_literals;
+
+        if (sessState == E2EState::UNITIALIZED)
+            return false;
+
+        uint64_t expiry =
+            sessTimestamp +
+            std::chrono::duration_cast<std::chrono::system_clock::duration>(60s)
+                .count();
+        uint64_t now =
+            std::chrono::system_clock::now().time_since_epoch().count();
+        if (now > expiry)
+            return true;
+        else
+            return false;
+    }
 };

@@ -16,17 +16,21 @@ using SID = size_t;
 class SocketSet {
   private:
     std::vector<NetworkHandler> data;
-    std::vector<pollfd> readPollfd;
+    size_t numActiveConnections = 0;
 
   public:
     SID insert(NetworkHandler&& nh);
-    NetworkHandler* waitForRead();
+    SID waitForRead();
 
     NetworkHandler& operator[](SID idx) { return data[idx]; }
     const NetworkHandler& operator[](SID idx) const { return data[idx]; }
 
     size_t size() const { return data.size(); }
     bool empty() const { return data.empty(); }
+
+    bool hasActive() {
+        return numActiveConnections > 0;
+    }
 };
 
 template <typename T>

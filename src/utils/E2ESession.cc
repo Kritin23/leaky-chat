@@ -3,36 +3,28 @@
 #include <openssl/bn.h>
 #include <openssl/rand.h>
 
+#include <iostream>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string_view>
+#include <iostream>
+#include <utility>
 
 #include "utils/Cryptography/AESGCM.hh"
+#include "utils/Cryptography/CryptoSession.hh"
 #include "utils/MemBuffer.h"
 
 std::optional<Payload> E2ESession::initiate() {
     std::vector<uint8_t> publicKey = mCrypto.getPublicKey();
     uint64_t timestamp =
         std::chrono::system_clock::now().time_since_epoch().count();
-    MemBuffer buf;
-    buf << timestamp;
-
-    for (char i : buf.view()) {
-        std::cerr << (unsigned int)((uint8_t)i) << " ";
-    }
-
-    buf << publicKey;
-
-    std::cerr << "Timestamp: " << timestamp << "\n";
-
-    for (char i : buf.view()) {
-        std::cerr << (unsigned int)((uint8_t)i) << " ";
-    }
-    std::cerr << "\n";
-
-    Payload pl{Payload::Type::__E2E_INIT__, std::string(buf.view())};
+    E2EInit initpl = {.seqno = ++sequenceNo,
+                      .timestamp = timestamp,
+                      .key = std::move(publicKey)};
+    Payload pl;
+    pl << initpl;
     sessState = E2EState::INIT_SENT;
     sessTimestamp = timestamp;
     return pl;
@@ -62,11 +54,16 @@ std::optional<Payload> E2ESession::handleInit(Payload pl) {
         std::vector<uint8_t> peerKey;
         buf >> peerKey;
 
-        std::cerr << "peer key: ";
-        for (auto i : peerKey) {
-            std::cerr << i << "\n";
+std::optional<Payload> E2ESession::handleInit(Payload pl) {
+    E2EInit initpl;
+    pl >> initpl;
+    if (initpl.seqno > sequenceNo ||
+        (initpl.seqno == sequenceNo && initpl.timestamp < sessTimestamp)) {
+        if (sessState == E2EState::ESTABLISHED) {
+            oldCrypto = CryptoSession();
+            std::swap(oldCrypto, mCrypto);
         }
-        mCrypto.establish(peerKey);
+        mCrypto.establish(initpl.key);
 
         std::cerr << "est\n";
 
@@ -78,7 +75,8 @@ std::optional<Payload> E2ESession::handleInit(Payload pl) {
             std::string((const char*)publicKey.data(), publicKey.size())};
         std::cerr << "couldnt create payload\n";
         sessState = E2EState::ESTABLISHED;
-        sessTimestamp = timestamp;
+        sessTimestamp = initpl.timestamp;
+        sequenceNo = initpl.seqno;
         return ack;
     } else {
         return {};
@@ -86,14 +84,14 @@ std::optional<Payload> E2ESession::handleInit(Payload pl) {
 }
 
 std::optional<Payload> E2ESession::handleAck(Payload pl) {
-    if (sessState != E2EState::INIT_SENT) {
+    if (sessState != E2EState::INIT_SENT && sessState!=E2EState::REFRESH_SENT) {
         return {};
     }
-    MemBuffer buf;
-    buf << pl.data;
-    std::vector<uint8_t> peerKey;
-    buf >> peerKey;
-    mCrypto.establish(peerKey);
+    E2EAck ackpl;
+    pl >> ackpl;
+    if (ackpl.seqno != sequenceNo)
+        return {};
+    mCrypto.establish(ackpl.key);
     sessState = E2EState::ESTABLISHED;
     return {};
 }
@@ -102,13 +100,15 @@ Payload E2ESession::encrypt(std::string_view str) {
     if (sessState == E2EState::ESTABLISHED) {
         std::vector<uint8_t> plaintext(str.begin(), str.end());
         auto eData = mCrypto.encrypt(plaintext);
-        MemBuffer buf;
+        MemBuffer buf(64);
+        buf << sequenceNo;
         buf << eData.nonce;
         buf << eData.ciphertext;
         buf << eData.tag;
         return Payload{Payload::Type::__E2E_MSG__,
                        std::string(buf.data(), buf.size())};
     } else {
+        std::cerr << "Encrypting plaintext\n";
         return Payload{Payload::Type::__PLAIN_TEXT__,
                        std::string(str.data(), str.size())};
     }
@@ -117,14 +117,19 @@ Payload E2ESession::encrypt(std::string_view str) {
 std::string E2ESession::decrypt(const Payload& pl) {
     if (sessState == E2EState::ESTABLISHED &&
         pl.type == Payload::Type::__E2E_MSG__) {
-        MemBuffer buf;
+        MemBuffer buf(64);
         buf << pl.data;
+        uint32_t seqNo;
+        buf >> seqNo;
         AESGCM::EncryptedData eData;
         buf >> eData.nonce;
         buf >> eData.ciphertext;
         buf >> eData.tag;
-
-        auto msg = mCrypto.decrypt(eData);
+        std::vector<uint8_t> msg;
+        if (seqNo == sequenceNo)
+            msg = mCrypto.decrypt(eData);
+        else
+            msg = oldCrypto.decrypt(eData);
         return std::string(msg.begin(), msg.end());
     } else if (pl.type == Payload::Type::__PLAIN_TEXT__) {
         return pl.data;

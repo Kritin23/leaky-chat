@@ -6,6 +6,7 @@
 #include <chrono>
 #include <optional>
 #include <string_view>
+#include <iostream>
 
 #include "utils/Cryptography/AESGCM.hh"
 #include "utils/MemBuffer.h"
@@ -17,6 +18,12 @@ std::optional<Payload> E2ESession::initiate() {
     MemBuffer buf;
     buf << timestamp;
     buf << publicKey;
+
+    for(auto i : buf.view()) {
+        std::cerr << (uint8_t)i << " ";
+    }
+    std::cerr << "\n";
+
     Payload pl{Payload::Type::__E2E_INIT__,
                std::string(buf.data(), buf.size())};
     sessState = E2EState::INIT_SENT;
@@ -25,20 +32,37 @@ std::optional<Payload> E2ESession::initiate() {
 }
 
 std::optional<Payload> E2ESession::handleInit(Payload pl) {
+    std::cerr << "e2e:handleinit\n";
     MemBuffer buf;
     buf << pl.data;
     uint64_t timestamp;
     buf >> timestamp;
+    std::cerr << "buffer works\n";
+
+    std::cerr << timestamp << " " << sessTimestamp << "\n";
 
     if (timestamp < sessTimestamp) {
+        std::cerr << "here\n";
+        std::cerr << "buffer: -" << buf.view() << "- of size " << buf.size() << "\n";
+        std::cerr << "size: " << (size_t)(buf.view()[0]) << "\n";
         std::vector<uint8_t> peerKey;
         buf >> peerKey;
+
+        std::cerr << "peer key: ";
+        for(auto i : peerKey) {
+            std::cerr << i << "\n";
+        }
         mCrypto.establish(peerKey);
 
+        std::cerr << "est\n";
+
         auto publicKey = mCrypto.getPublicKey();
+
+        std::cerr << "have pk\n";
         Payload ack{
             Payload::Type::__E2E_ACK__,
             std::string((const char*)publicKey.data(), publicKey.size())};
+        std::cerr << "couldnt create payload\n";
         sessState = E2EState::ESTABLISHED;
         sessTimestamp = timestamp;
         return ack;

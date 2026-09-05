@@ -267,6 +267,7 @@ int NetworkHandler::sendPacket(const Packet& packet) {
         std::cerr << "Failed to send packet." << std::endl;
         return -1;
     }
+    std::cerr << "[SEND] packet to " << mSocket << ", bytes=" << bytes_sent << "\n"; 
 
     return 0;
 }

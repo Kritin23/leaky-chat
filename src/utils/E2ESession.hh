@@ -36,6 +36,7 @@ enum class E2EState {
     UNITIALIZED,
     INIT_SENT,
     ESTABLISHED,
+    REFRESH_SENT,
 };
 
 struct E2EInit {
@@ -59,9 +60,16 @@ inline void operator<<(Payload& pl, const E2EInit& init) {
 
     buf.free();
 
+<<<<<<< HEAD
     // for (char i : pl.data) {
     //     std::cerr << (unsigned int)(uint8_t)(i) << " ";
     // }
+=======
+    std::cerr << "E2E Init Payload\n";
+    for (char i : pl.data) {
+        std::cerr << (unsigned int)(uint8_t)(i) << " ";
+    }
+>>>>>>> e4fba33 (PHASE 5: done)
 }
 
 inline void operator>>(const Payload& pl, E2EInit& init) {
@@ -152,6 +160,7 @@ inline void operator>>(const Payload& pl, E2EAck& init) {
 class E2ESession {
   private:
     CryptoSession mCrypto;
+    CryptoSession oldCrypto;
     uint64_t sessTimestamp = -1;
     E2EState sessState = E2EState::UNITIALIZED;
     uint32_t sequenceNo = 0;
@@ -164,6 +173,8 @@ class E2ESession {
     const CryptoSession& crypto() const { return mCrypto; }
 
     uint32_t seqNo() const { return sequenceNo; }
+
+    auto getState() const { return sessState;}
 
     std::optional<Payload> initiate();
     std::optional<Payload> refresh();
@@ -183,7 +194,7 @@ class E2ESession {
 
         uint64_t expiry =
             sessTimestamp +
-            std::chrono::duration_cast<std::chrono::system_clock::duration>(60s)
+            std::chrono::duration_cast<std::chrono::system_clock::duration>(10s)
                 .count();
         uint64_t now =
             std::chrono::system_clock::now().time_since_epoch().count();

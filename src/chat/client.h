@@ -35,7 +35,7 @@ class Client {
     bool setupConnection(std::string_view host, int port);
     bool login(std::string_view uname);
     bool connectTo(std::string_view uname);
-    bool setupE2E(const std::string& uname);
+    bool setupE2E(const std::string& uname, bool refresh = false);
     bool refreshE2E(const std::string& uname);
     void handleE2EPacket(const std::unique_ptr<MessagePacket>& pkt);
     SequenceNo send(std::string_view msg);

@@ -15,7 +15,7 @@
 namespace client_impl {
 bool Client::initiateE2E(const std::string& username) {
     if (mE2ESessions.contains(username))
-        if (mE2ESessions[username].getState() == E2EState::ESTABLISHED)
+        if (mE2ESessions[username].getState() != E2EState::UNITIALIZED)
             return true;
     auto& session = mE2ESessions[username];
     auto pkt = MessagePacket(username, *session.initiate());
@@ -25,6 +25,7 @@ bool Client::initiateE2E(const std::string& username) {
 }
 
 bool Client::refreshE2E(const std::string& username) {
+    std::cerr << "Refreshing E2E keys\n";
     auto& session = mE2ESessions[username];
     auto pkt = MessagePacket(username, *session.refresh());
     pkt.seq = curSeqNo++;
@@ -52,12 +53,11 @@ void Client::handleE2EAck(const MessagePacket& packet) {
     E2ESession& session = mE2ESessions[peer];
     session.handleAck(packet.getPayload());
     std::cerr << "acked\n";
-
 }
 
 bool Client::waitUntilAck(SequenceNo seq) {
     while (true) {
-        auto pkt = serverSocket.receivePacket();
+        auto pkt = poll();
         if (!pkt) {
             continue;
         }
@@ -77,9 +77,9 @@ bool Client::waitUntilAck(SequenceNo seq) {
 
 std::unique_ptr<Packet> Client::waitForPred(auto pred) {
     while (true) {
-        auto pkt = serverSocket.receivePacket();
+        auto pkt = poll();
         if (!pkt) {
-            return nullptr;
+            continue;
         }
         if (pred(pkt)) {
             return pkt;
@@ -91,9 +91,9 @@ std::unique_ptr<Packet> Client::waitForPred(auto pred) {
 
 std::unique_ptr<Packet> Client::waitForType(PacketType type) {
     while (true) {
-        auto pkt = serverSocket.receivePacket();
+        auto pkt = poll();
         if (!pkt) {
-            return nullptr;
+            continue;
         }
         if (pkt->mPacketType == type) {
             return pkt;
@@ -103,9 +103,16 @@ std::unique_ptr<Packet> Client::waitForType(PacketType type) {
     }
 }
 
-bool Client::setupE2E(const std::string& uname) {
-    if (!initiateE2E(uname))
-        return false;
+bool Client::setupE2E(const std::string& uname, bool refresh) {
+    if (!refresh) {
+        if (!initiateE2E(uname))
+            return false;
+    } else {
+        if (!refreshE2E(uname)) {
+            return false;
+        }
+    }
+    std::cerr << "initiated\n";
     auto isE2ePkt = [&uname](const std::unique_ptr<Packet>& pkt) {
         if (pkt->mPacketType != PacketType::MESSAGE)
             return false;
@@ -125,6 +132,7 @@ bool Client::setupE2E(const std::string& uname) {
     auto msgPkt = getDerivedPacket<MessagePacket>(std::move(pkt));
     std::cerr << "downcast\n";
     if (msgPkt->getPayload().type == Payload::Type::__E2E_INIT__) {
+        std::cerr << "conflicting init\n";
         if (handleE2EInit(*msgPkt)) {
             return true;
         } else {
@@ -134,8 +142,11 @@ bool Client::setupE2E(const std::string& uname) {
             return true;
         }
     } else if (msgPkt->getPayload().type == Payload::Type::__E2E_ACK__) {
+        std::cerr << "handling ack\n";
         handleE2EAck(*msgPkt);
         return true;
+    } else {
+        std::cerr << "unknown e2e pkt\n";
     }
     std::cerr << "bye\n";
     return false;
@@ -161,9 +172,9 @@ bool Client::login(std::string_view username) {
 bool Client::connectTo(std::string_view uname) {
     connected = uname;
     if (mE2ESessions.contains(connected)) {
-        auto session = mE2ESessions[connected];
+        auto& session = mE2ESessions[connected];
         if (session.isStale())
-            refreshE2E(std::string(uname));
+            setupE2E(std::string(uname), true);
     }
     return true;
 }
@@ -173,7 +184,7 @@ SequenceNo Client::send(std::string_view msg) {
     SequenceNo seq = curSeqNo++;
     auto& session = mE2ESessions[connected];
     if (session.isStale()) {
-        refreshE2E(std::string(connected));
+        setupE2E(std::string(connected), true);
     }
     auto msgPkt = MessagePacket(connected, session.encrypt(msg));
     msgPkt.seq = seq;
@@ -328,7 +339,6 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
 
         if (!running)
             break;
-
 
         while (auto pkt = client.poll()) {
             if (pkt->mPacketType == PacketType::MESSAGE) {

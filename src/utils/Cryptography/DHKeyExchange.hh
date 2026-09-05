@@ -27,4 +27,6 @@ class DHKeyExchange {
 
     std::vector<std::uint8_t> computeSharedSecret(
         const std::vector<std::uint8_t>& peerPublicKey) const;
+
+    
 };

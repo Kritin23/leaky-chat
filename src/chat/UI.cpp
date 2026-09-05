@@ -102,7 +102,7 @@ void UI::run() {
             redraw();
 
         // Avoid spinning at 100% CPU.
-        usleep(1000000);
+        usleep(10000);
     }
 
     // Restore a sane terminal state.

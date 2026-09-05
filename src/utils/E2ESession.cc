@@ -3,12 +3,10 @@
 #include <openssl/bn.h>
 #include <openssl/rand.h>
 
-#include <iostream>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <optional>
-#include <iostream>
 #include <utility>
 
 #include "utils/Cryptography/AESGCM.hh"
@@ -37,64 +35,65 @@ std::optional<Payload> E2ESession::initiate() {
     return pl;
 }
 
-std::optional<Payload> E2ESession::handleInit(Payload pl) {
-    std::cerr << "handleInit:State is " << (int)sessState << "\n";
 std::optional<Payload> E2ESession::refresh() {
-    oldCrypto = CryptoSession();
-    std::swap(oldCrypto, mCrypto);
+    std::cerr << "refresh:State is " << (int)sessState << "\n";
+    oldCrypto = std::move(mCrypto);
+    mCrypto = CryptoSession();
+    std::cerr << "here123\n";
     std::vector<uint8_t> publicKey = mCrypto.getPublicKey();
+    std::cerr << "here1\n";
     uint64_t timestamp =
         std::chrono::system_clock::now().time_since_epoch().count();
+    std::cerr << "here11\n";
     E2EInit initpl = {.seqno = ++sequenceNo,
                       .timestamp = timestamp,
                       .key = std::move(publicKey)};
+    std::cerr << "here2\n";
     Payload pl;
     pl << initpl;
+    std::cerr << "here3\n";
     sessState = E2EState::REFRESH_SENT;
     sessTimestamp = timestamp;
+    std::cerr << "refresh:State is " << (int)sessState << "\n";
     return pl;
 }
 
 std::optional<Payload> E2ESession::handleInit(Payload pl) {
     E2EInit initpl;
     pl >> initpl;
-    // if (initpl.seqno > sequenceNo ||
-    //     (initpl.seqno == sequenceNo && initpl.timestamp < sessTimestamp)) {
-        // if (sessState == E2EState::ESTABLISHED) {
-        //     oldCrypto = CryptoSession();
-        //     std::swap(oldCrypto, mCrypto);
-        // }
-    mCrypto.establish(initpl.key);
-
-    std::cerr << "est\n";
-
-    auto publicKey = mCrypto.getPublicKey();
-
-    std::cerr << "have pk\n";
-    std::cerr << "pubkey size: " << publicKey.size() << "\n";
-    E2EAck ack{initpl.seqno, std::move(publicKey)};
-    Payload ackpl;
-    ackpl << ack;
-    sessState = E2EState::ESTABLISHED;
-    std::cerr << "handleInit:State is " << (int)sessState << "\n";
-    sessTimestamp = initpl.timestamp;
-    sequenceNo = initpl.seqno;
-    return ackpl;
-    // } else {
-    //     return {};
-    // }
+    if (initpl.seqno > sequenceNo ||
+        (initpl.seqno == sequenceNo && initpl.timestamp < sessTimestamp)) {
+        if (sessState == E2EState::ESTABLISHED) {
+            std::cerr << "refreshing crypto session\n";
+            oldCrypto = std::move(mCrypto);
+            mCrypto = CryptoSession();
+        }
+        mCrypto.establish(initpl.key);
+        auto publicKey = mCrypto.getPublicKey();
+        E2EAck ack{initpl.seqno, std::move(publicKey)};
+        std::cerr << "now seq no is " << initpl.seqno << "\n";
+        Payload ackpl;
+        ackpl << ack;
+        sessState = E2EState::ESTABLISHED;
+        std::cerr << "handleInit:State is " << (int)sessState << "\n";
+        sessTimestamp = initpl.timestamp;
+        sequenceNo = initpl.seqno;
+        return ackpl;
+    } else {
+        return {};
+    }
 }
 
 std::optional<Payload> E2ESession::handleAck(Payload pl) {
-    // if (sessState != E2EState::INIT_SENT && sessState!=E2EState::REFRESH_SENT) {
-    //     return {};
-    // }
     std::cerr << "handleAck:State is " << (int)sessState << "\n";
-    if (sessState != E2EState::INIT_SENT) {
+    if (sessState != E2EState::INIT_SENT &&
+        sessState != E2EState::REFRESH_SENT) {
         return {};
     }
+    std::cerr << "handleAck:State is " << (int)sessState << "\n";
     E2EAck ackpl;
     pl >> ackpl;
+    std::cerr << "seq: " << sequenceNo << "   rcvd seq: " << ackpl.seqno << "\n";
     if (ackpl.seqno != sequenceNo)
         return {};
     mCrypto.establish(ackpl.key);
@@ -129,10 +128,11 @@ std::string E2ESession::decrypt(const Payload& pl) {
         pl.type == Payload::Type::__E2E_MSG__) {
         std::cerr << "hereeee\n";
         std::vector<uint8_t> plaintext;
-        // if (msg.seqno == sequenceNo)
-        plaintext = mCrypto.decrypt(std::get<AESGCM::EncryptedData>(msg.data));
-        // else
-            // msg = oldCrypto.decrypt(eData);
+        if (msg.seqno == sequenceNo)
+            plaintext =
+                mCrypto.decrypt(std::get<AESGCM::EncryptedData>(msg.data));
+        else
+            plaintext = oldCrypto.decrypt(std::get<AESGCM::EncryptedData>(msg.data));
         return std::string(plaintext.begin(), plaintext.end());
     } else if (pl.type == Payload::Type::__PLAIN_TEXT__) {
         return std::get<std::string>(msg.data);

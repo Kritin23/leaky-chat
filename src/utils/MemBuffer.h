@@ -21,9 +21,49 @@ class MemBuffer {
     MemBuffer(size_t sz)
         : data_(new char[sz]), begin(0), end(0), capacity_(sz) {}
 
+    MemBuffer(const MemBuffer&) = delete;
+    MemBuffer& operator=(const MemBuffer&) = delete;
+
+    MemBuffer(MemBuffer&& other) {
+        data_ = other.data_;
+        other.data_ = nullptr;
+
+        begin = other.begin;
+        end = other.end;
+        capacity_ = other.capacity_;
+        other.begin = other.end = other.capacity_ = 0;
+    }
+    MemBuffer& operator=(MemBuffer&& other) {
+        if (this != &other) {
+            free();
+            data_ = other.data_;
+            other.data_ = nullptr;
+
+            begin = other.begin;
+            end = other.end;
+            capacity_ = other.capacity_;
+            other.begin = other.end = other.capacity_ = 0;
+        }
+        return *this;
+    }
+
+    void free() {
+        if (data_) {
+            delete[] data_;
+            data_ = nullptr;
+            begin = end = capacity_ = 0;
+        }
+    }
+
+    ~MemBuffer() { free(); }
+
     size_t capacity() const { return capacity_; }
 
     size_t size() const { return end - begin; }
+
+    size_t availableSpace() const { return capacity_ - end; }
+
+    size_t freeSpace() const { return capacity() - size();}
 
     void resize(size_t sz);
 

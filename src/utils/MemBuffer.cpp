@@ -1,6 +1,7 @@
 
 #include "MemBuffer.h"
 
+#include <cstdlib>
 #include <string>
 #include <cstring>
 #include <stdexcept>
@@ -11,6 +12,9 @@ void MemBuffer::resize(size_t sz) {
         std::memcpy(newBuffer, data_ + begin, end - begin);
         end = end - begin;
         begin = 0;
+        if (data_)
+            delete[] data_;
+        capacity_ = sz;
         data_ = newBuffer;
     }
 }
@@ -24,10 +28,12 @@ void MemBuffer::relocate() {
 }
 
 void MemBuffer::ensureFreeSpace(size_t sz) {
-    if (capacity() - size() < sz) {
-        resize(2 * capacity());
-    } else if (capacity() - end < sz) {
+    if (availableSpace() >= sz) {
+        return;
+    } else if (freeSpace() >= sz) {
         relocate();
+    } else {
+        resize(std::max(2*capacity_, sz));
     }
 }
 

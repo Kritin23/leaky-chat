@@ -23,16 +23,19 @@ bool Client::initiateE2E(const std::string& username) {
 }
 
 bool Client::handleE2EInit(const MessagePacket& packet) {
+    std::cerr << "handling init\n";
     const std::string& peer = packet.getSender();
 
     std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
                                             packet.getPayload().data.end());
     auto& session = mE2ESessions[peer];
     auto response = session.handleInit(packet.getPayload());
+    std::cerr << "handled init\n";
     if (response) {
         auto ack = MessagePacket(peer, *response);
         ack.seq = curSeqNo++;
         serverSocket.sendPacket(ack);
+        std::cerr << "init response sent\n";
         return true;
     }
     return false;
@@ -95,6 +98,7 @@ std::unique_ptr<Packet> Client::waitForType(PacketType type) {
 bool Client::setupE2E(const std::string& uname) {
     if (!initiateE2E(uname))
         return false;
+    std::cerr << "initiated";
     auto isE2ePkt = [&uname](const std::unique_ptr<Packet>& pkt) {
         if (pkt->mPacketType != PacketType::MESSAGE)
             return false;
@@ -208,11 +212,9 @@ std::string Client::decryptMessage(const std::unique_ptr<MessagePacket>& pkt) {
 void Client::quit() {
     SequenceNo seq;
     auto quitPkt = RequestPacket(RequestType::DISCONNECT);
-    do {
-        seq = curSeqNo++;
-        quitPkt.seq = seq;
-        serverSocket.sendPacket(quitPkt);
-    } while (waitUntilAck(seq));
+    seq = curSeqNo++;
+    quitPkt.seq = seq;
+    serverSocket.sendPacket(quitPkt);
 }
 
 bool Client::setupConnection(std::string_view host, int port) {
@@ -315,6 +317,12 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
                     ui.addMessage(Message({}, msgPkt->getSender(), msg));
                 }
             }
+        }
+
+        if(!client.getSocket()->connected()) {
+            ui.addMessage(Message({}, "","Server desconnected"));
+            running = false;
+            break;
         }
     }
 

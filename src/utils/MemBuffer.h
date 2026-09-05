@@ -7,6 +7,7 @@
 #include <string_view>
 #include <type_traits>
 #include <vector>
+#include <iostream>
 
 struct Payload {
     enum class Type : std::uint8_t {
@@ -133,6 +134,7 @@ class MemBuffer {
     MemBuffer& operator>>(std::vector<T>& vec) {
         size_t vecSize;
         *this >> vecSize;
+        std::cerr << "size is " << vecSize << "\n";
         vec.resize(vecSize);
         for (auto& val : vec) {
             *this >> val;

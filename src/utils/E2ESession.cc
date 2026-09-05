@@ -4,6 +4,8 @@
 #include <openssl/rand.h>
 
 #include <chrono>
+#include <cstdint>
+#include <iostream>
 #include <optional>
 #include <string_view>
 
@@ -16,29 +18,65 @@ std::optional<Payload> E2ESession::initiate() {
         std::chrono::system_clock::now().time_since_epoch().count();
     MemBuffer buf;
     buf << timestamp;
+
+    for (char i : buf.view()) {
+        std::cerr << (unsigned int)((uint8_t)i) << " ";
+    }
+
     buf << publicKey;
-    Payload pl{Payload::Type::__E2E_INIT__,
-               std::string(buf.data(), buf.size())};
+
+    std::cerr << "Timestamp: " << timestamp << "\n";
+
+    for (char i : buf.view()) {
+        std::cerr << (unsigned int)((uint8_t)i) << " ";
+    }
+    std::cerr << "\n";
+
+    Payload pl{Payload::Type::__E2E_INIT__, std::string(buf.view())};
     sessState = E2EState::INIT_SENT;
     sessTimestamp = timestamp;
     return pl;
 }
 
 std::optional<Payload> E2ESession::handleInit(Payload pl) {
+    std::cerr << "e2e:handleinit\n";
     MemBuffer buf;
     buf << pl.data;
+
+    for (char i : buf.view()) {
+        std::cerr << (unsigned int)((uint8_t)i) << " ";
+    }
+
     uint64_t timestamp;
     buf >> timestamp;
 
+    std::cerr << "-------------\n";
+
+    for (char i : buf.view()) {
+        std::cerr << (unsigned int)((uint8_t)i) << " ";
+    }
+
     if (timestamp < sessTimestamp) {
+        std::cerr << "here\n";
+        std::cerr << "\n";
         std::vector<uint8_t> peerKey;
         buf >> peerKey;
+
+        std::cerr << "peer key: ";
+        for (auto i : peerKey) {
+            std::cerr << i << "\n";
+        }
         mCrypto.establish(peerKey);
 
+        std::cerr << "est\n";
+
         auto publicKey = mCrypto.getPublicKey();
+
+        std::cerr << "have pk\n";
         Payload ack{
             Payload::Type::__E2E_ACK__,
             std::string((const char*)publicKey.data(), publicKey.size())};
+        std::cerr << "couldnt create payload\n";
         sessState = E2EState::ESTABLISHED;
         sessTimestamp = timestamp;
         return ack;

@@ -2,7 +2,12 @@
 
 #include <iostream>
 #include <memory>
+#include <thread>
+#include <chrono>
 
+using namespace std::chrono_literals;
+
+#include "utils/NetworkHandler.hh"
 #include "utils/Packet.hh"
 
 void Server::handleConnect() {
@@ -46,24 +51,19 @@ int Server::run() {
     while (true) {
         // std::cerr << "Waiting for new connections..." << std::endl;
         handleConnect();
-
-        NetworkHandler* handler = connections.waitForRead();
-
-        if (!handler) {
+        if (!connections.hasActive()) {
+            std::this_thread::sleep_for(10ms);
             continue;
         }
-        std::cerr << "Received packet from connection " << handler->getSocket()
+        SID sid = connections.waitForRead();
+
+        if (sid == -1) {
+            continue;
+        }
+        std::cerr << "Received packet from connection " << sid
                   << std::endl;
 
-        SID sid = -1;
-
-        // Find the SID corresponding to the ready handler.
-        for (size_t i = 0; i < connections.size(); ++i) {
-            if (&connections[i] == handler) {
-                sid = i;
-                break;
-            }
-        }
+        NetworkHandler* handler = &connections[sid];
 
         auto pkt = handler->receivePacket();
 

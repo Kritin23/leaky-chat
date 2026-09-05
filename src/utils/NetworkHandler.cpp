@@ -132,9 +132,9 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
 }
 
 void NetworkHandler::close() {
-    if(mSocket != -1) {
+    mConnected = false;
+    if (mSocket != -1) {
         ::close(mSocket);
-        mConnected = false;
         mSocket = -1;
     }
 }

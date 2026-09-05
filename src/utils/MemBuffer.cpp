@@ -8,7 +8,7 @@
 #include "utils/Packet.hh"
 
 void MemBuffer::resize(size_t sz) {
-    if (size() < sz) {
+    if (capacity_ < sz) {
         char* newBuffer = new char[sz];
         std::memcpy(newBuffer, data_ + begin, end - begin);
         end = end - begin;
@@ -34,7 +34,7 @@ void MemBuffer::ensureFreeSpace(size_t sz) {
     } else if (freeSpace() >= sz) {
         relocate();
     } else {
-        resize(std::max(2*capacity_, sz));
+        resize(std::max(2*capacity_, sz + capacity_));
     }
 }
 
@@ -50,7 +50,7 @@ MemBuffer& MemBuffer::operator<<(std::string_view sv) {
     return *this;
 }
 
-MemBuffer& MemBuffer::operator<<(std::vector<std::string> vec) {
+MemBuffer& MemBuffer::operator<<(const std::vector<std::string>& vec) {
     *this << vec.size();
     for (const auto& str : vec) {
         *this << str;

@@ -260,6 +260,10 @@ int NetworkHandler::sendPacket(const Packet& packet) {
     encryptedBuffer << encrypted.ciphertext;
     encryptedBuffer << encrypted.tag;
 
+    // int bytes_sum = 0;
+
+    // while(byt)
+    std::cerr << encryptedBuffer.size()<<std::endl;
     ssize_t bytes_sent =
         send(mSocket, encryptedBuffer.data(), encryptedBuffer.size(), 0);
 

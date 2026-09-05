@@ -100,7 +100,7 @@ class MemBuffer {
 
     template <std::integral T>
         requires (!std::is_same_v<T, bool>)
-    MemBuffer& operator<<(std::vector<T> vec) {
+    MemBuffer& operator<<(const std::vector<T>& vec) {
         *this << vec.size();
         for (const auto& val : vec) {
             *this << val;
@@ -114,7 +114,7 @@ class MemBuffer {
     }
 
     MemBuffer& operator<<(std::string_view sv);
-    MemBuffer& operator<<(std::vector<std::string> vec);
+    MemBuffer& operator<<(const std::vector<std::string>& vec);
     MemBuffer& operator<<(Payload payload);
 
     void consume(size_t len);
@@ -134,7 +134,6 @@ class MemBuffer {
     MemBuffer& operator>>(std::vector<T>& vec) {
         size_t vecSize;
         *this >> vecSize;
-        std::cerr << "size is " << vecSize << "\n";
         vec.resize(vecSize);
         for (auto& val : vec) {
             *this >> val;

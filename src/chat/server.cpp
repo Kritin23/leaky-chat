@@ -37,6 +37,11 @@ void Server::handleQuit(SID sid, std::unique_ptr<RequestPacket>&& pkt) {
     connections[sid].close();
 }
 
+void dumpMessage(const MessagePacket& pkt) {
+    std::cerr << pkt.getSender() << " -> " << pkt.getReceiver() << ": ";
+    std::cerr << pkt.getPayload().data << "\n";
+}
+
 void Server::handleMessage(SID sid, std::unique_ptr<MessagePacket>&& pkt) {
     const std::string& sender = usernames[sid];
     pkt->setSender(sender);
@@ -44,6 +49,7 @@ void Server::handleMessage(SID sid, std::unique_ptr<MessagePacket>&& pkt) {
     if (!rcvrOpt)
         return;
     SID rcvr = *rcvrOpt;
+    dumpMessage(*pkt);
     connections[rcvr].sendPacket(*pkt);
 }
 

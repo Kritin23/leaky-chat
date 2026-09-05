@@ -8,34 +8,34 @@
 #include <thread>
 
 #include "UI.h"
+#include "utils/E2ESession.hh"
 #include "utils/MemBuffer.h"
 #include "utils/Packet.hh"
 
 namespace client_impl {
 bool Client::initiateE2E(const std::string& username) {
     if (mE2ESessions.contains(username))
-        return false;
-
+        if (mE2ESessions[username].getState() == E2EState::ESTABLISHED)
+            return true;
+    std::cerr << "here\n";
     auto& session = mE2ESessions[username];
     auto pkt = MessagePacket(username, *session.initiate());
     pkt.seq = curSeqNo++;
+    std::cerr << "here\n";
     return serverSocket.sendPacket(pkt) == 0;
 }
 
 bool Client::handleE2EInit(const MessagePacket& packet) {
-    std::cerr << "handling init\n";
     const std::string& peer = packet.getSender();
 
     std::vector<std::uint8_t> peerPublicKey(packet.getPayload().data.begin(),
                                             packet.getPayload().data.end());
     auto& session = mE2ESessions[peer];
     auto response = session.handleInit(packet.getPayload());
-    std::cerr << "handled init\n";
     if (response) {
         auto ack = MessagePacket(peer, *response);
         ack.seq = curSeqNo++;
         serverSocket.sendPacket(ack);
-        std::cerr << "init response sent\n";
         return true;
     }
     return false;
@@ -43,7 +43,7 @@ bool Client::handleE2EInit(const MessagePacket& packet) {
 
 void Client::handleE2EAck(const MessagePacket& packet) {
     const std::string& peer = packet.getSender();
-    auto session = mE2ESessions[peer];
+    auto& session = mE2ESessions[peer];
     session.handleAck(packet.getPayload());
 }
 
@@ -98,7 +98,6 @@ std::unique_ptr<Packet> Client::waitForType(PacketType type) {
 bool Client::setupE2E(const std::string& uname) {
     if (!initiateE2E(uname))
         return false;
-    std::cerr << "initiated";
     auto isE2ePkt = [&uname](const std::unique_ptr<Packet>& pkt) {
         if (pkt->mPacketType != PacketType::MESSAGE)
             return false;
@@ -205,7 +204,7 @@ std::unique_ptr<Packet> Client::poll() {
 
 std::string Client::decryptMessage(const std::unique_ptr<MessagePacket>& pkt) {
     const std::string peer = pkt->getSender();
-    auto session = mE2ESessions[peer];
+    auto& session = mE2ESessions[peer];
     return session.decrypt(pkt->getPayload());
 }
 
@@ -319,8 +318,8 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
             }
         }
 
-        if(!client.getSocket()->connected()) {
-            ui.addMessage(Message({}, "","Server desconnected"));
+        if (!client.getSocket()->connected()) {
+            ui.addMessage(Message({}, "", "Server desconnected"));
             running = false;
             break;
         }

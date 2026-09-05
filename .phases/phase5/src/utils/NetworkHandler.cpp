@@ -53,7 +53,6 @@ int NetworkHandler::performClientCertificateAuthentication() {
     ssize_t bytes_received = recv(mSocket, buffer, sizeof(buffer), 0);
 
     if(bytes_received ==0){
-        std::cerr << "brudda"<<std::endl;
         exit(1);
     }
 
@@ -64,7 +63,6 @@ int NetworkHandler::performClientCertificateAuthentication() {
         // sleep(2);
         return -1;
     }
-    std::cerr << "yo"<<std::endl;
     // exit(1);
 
     MemBuffer certificateBuffer(bytes_received);

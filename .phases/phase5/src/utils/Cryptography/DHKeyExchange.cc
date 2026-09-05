@@ -27,7 +27,6 @@ DHKeyExchange::DHKeyExchange()
       mPublicKey(BN_new())
 {
 
-    std::cerr << "in DHexchange"<<std::endl;
     if (!mPrivateKey || !mPublicKey)
         throw std::runtime_error("BN_new failed");
 
@@ -52,7 +51,6 @@ DHKeyExchange::DHKeyExchange()
     }
     
     BN_free(publicKey);
-    std::cerr << "out DHexchange"<<std::endl;
 }
 
 DHKeyExchange::DHKeyExchange(DHKeyExchange&& other) noexcept
@@ -157,7 +155,6 @@ BIGNUM* DHKeyExchange::modExp(
 std::vector<std::uint8_t>
 DHKeyExchange::getPublicKey() const
 {
-    std::cerr << "[hh]in getpublich DH"<<std::endl;
     std::vector<std::uint8_t> result(256);
 
     if (BN_bn2binpad(
@@ -166,7 +163,6 @@ DHKeyExchange::getPublicKey() const
             result.size()) != static_cast<int>(result.size())) {
         throw std::runtime_error("BN_bn2binpad failed");
     }
-    std::cerr << "[hh]out getpublich DH"<<std::endl;
 
     return result;
 }

@@ -40,6 +40,7 @@ std::optional<Payload> E2ESession::refresh() {
     pl << initpl;
     sessState = E2EState::REFRESH_SENT;
     sessTimestamp = timestamp;
+    std::cerr << "Refresh at timestamp " << timestamp << "\n";
     return pl;
 }
 
@@ -64,6 +65,7 @@ std::optional<Payload> E2ESession::handleInit(Payload pl) {
         sessTimestamp = initpl.timestamp;
         sequenceNo = initpl.seqno;
         return ackpl;
+        std::cerr << "Refresh at timestamp " << initpl.timestamp << "\n";
     } else {
         return {};
     }
@@ -84,6 +86,7 @@ std::optional<Payload> E2ESession::handleAck(Payload pl) {
     mCrypto.establish(ackpl.key);
     sessState = E2EState::ESTABLISHED;
     std::cerr << "handleAck:State is " << (int)sessState << "\n";
+    std::cerr << "Refresh at timestamp " << sessTimestamp << "\n";
 
     return {};
 }

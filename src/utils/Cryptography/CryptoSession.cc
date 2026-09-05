@@ -10,7 +10,6 @@
 std::vector<std::uint8_t>
 CryptoSession::getPublicKey() const
 {
-    std::cerr << "[hh] in gpk cs"<<std::endl;
     return mDH.getPublicKey();
 }
 

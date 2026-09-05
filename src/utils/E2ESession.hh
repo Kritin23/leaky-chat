@@ -3,7 +3,6 @@
 #include <chrono>
 #include <optional>
 #include <string>
-#include <thread>
 #include <variant>
 
 #include "Cryptography/AESGCM.hh"

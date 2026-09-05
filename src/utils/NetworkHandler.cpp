@@ -356,6 +356,7 @@ std::unique_ptr<Packet> NetworkHandler::receivePacket(bool noBlock) {
         std::cerr << "Select failed: " << std::strerror(errno) << std::endl;
         return nullptr;
     } else if (select_result == 0) {
+        std::cerr << "nullptr\n";
         return nullptr;
     }
 

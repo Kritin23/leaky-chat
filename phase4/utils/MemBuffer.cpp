@@ -1,0 +1,115 @@
+
+#include "MemBuffer.h"
+
+#include <cstdlib>
+#include <string>
+#include <cstring>
+#include <stdexcept>
+#include "utils/Packet.hh"
+
+void MemBuffer::resize(size_t sz) {
+    if (capacity_ < sz) {
+        char* newBuffer = new char[sz];
+        std::memcpy(newBuffer, data_ + begin, end - begin);
+        end = end - begin;
+        begin = 0;
+        if (data_)
+            delete[] data_;
+        capacity_ = sz;
+        data_ = newBuffer;
+    }
+}
+
+void MemBuffer::relocate() {
+    if (begin > 0) {
+        memmove(data_, data_ + begin, end - begin);
+        end = end - begin;
+        begin = 0;
+    }
+}
+
+void MemBuffer::ensureFreeSpace(size_t sz) {
+    if (availableSpace() >= sz) {
+        return;
+    } else if (freeSpace() >= sz) {
+        relocate();
+    } else {
+        resize(std::max(2*capacity_, sz + capacity_));
+    }
+}
+
+void MemBuffer::write_bytes(const void* src, size_t len) {
+    ensureFreeSpace(len);
+    std::memcpy(data_ + end, src, len);
+    end += len;
+}
+
+MemBuffer& MemBuffer::operator<<(std::string_view sv) {
+    *this << sv.size();
+    write_bytes(sv.data(), sv.size());
+    return *this;
+}
+
+MemBuffer& MemBuffer::operator<<(const std::vector<std::string>& vec) {
+    *this << vec.size();
+    for (const auto& str : vec) {
+        *this << str;
+    }
+    return *this;
+}
+
+MemBuffer& MemBuffer::operator<<(Payload payload) {
+    *this << (uint8_t)payload.type;
+    *this << payload.data;
+    return *this;
+}
+
+void MemBuffer::consume(size_t len) {
+    if (len > size()) {
+        throw std::out_of_range("MemBuffer::consume underflow");
+    }
+    begin += len;
+    if (begin == end) {
+        begin = 0;
+        end = 0;
+    }
+}
+
+size_t MemBuffer::read(void* dest, size_t len) {
+    size_t bytes_to_read = (std::min)(len, size());
+    if (bytes_to_read > 0) {
+        std::memcpy(dest, data_ + begin, bytes_to_read);
+        // begin += bytes_to_read; // -> I guess this is redundant and logically
+        // incorrect?
+        consume(bytes_to_read);
+    }
+    return bytes_to_read;
+}
+
+MemBuffer& MemBuffer::operator>>(std::string& str) {
+    size_t sz;
+    *this >> sz;
+    str.resize(sz);
+    if (sz > 0) {
+        read(str.data(), sz);
+    }
+    return *this;
+}
+
+MemBuffer& MemBuffer::operator>>(std::vector<std::string>& vec) {
+    size_t vecSize;
+    *this >> vecSize;
+    vec.resize(vecSize);
+    for (auto& str : vec) {
+        *this >> str;
+    }
+    return *this;
+}
+
+MemBuffer& MemBuffer::operator>>(Payload& payload) {
+    uint8_t type;
+    *this >> type;
+    payload.type = static_cast<Payload::Type>(type);
+    *this >> payload.data;
+    return *this;
+}

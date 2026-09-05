@@ -1,0 +1,21 @@
+Diagnostics:
+  ClangTidy:
+    Add: [
+      "bugprone-*",
+      "performance-*",
+      "readability-*",
+      "modernize-*",
+    ]
+    Remove: [
+      "readability-identifier-length",
+      "modernize-use-trailing-return-type",
+    ]
+
+Index:
+  Background: Build
+
+InlayHints:
+  Enabled: true
+  ParameterNames: true
+  DeducingTypes: true
+  Designators: true

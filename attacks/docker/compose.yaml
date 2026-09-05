@@ -1,0 +1,69 @@
+services:
+  server:
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    container_name: leaky-server
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${PHASE_DIR:-../..}:/workspace
+      - ../../phase2/captures:/captures
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.10
+
+  client1:
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    container_name: leaky-client1
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${PHASE_DIR:-../..}:/workspace
+      - client1-build:/workspace/build
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.11
+
+  client2:
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    container_name: leaky-client2
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${PHASE_DIR:-../..}:/workspace
+      - client2-build:/workspace/build
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.12
+      
+  mallory:
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    container_name: leaky-mallory
+    stdin_open: true
+    tty: true
+    volumes:
+      - ${PHASE_DIR:-../..}:/workspace
+      - ../../phase2/captures:/captures
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.13
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+volumes:
+  server-build:
+  client1-build:
+  client2-build:
+  mallory-build:

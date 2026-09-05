@@ -1,0 +1,16 @@
+=== ENTERED performClientCertificateAuthentication ===
+CLIENT: Received server certificate bytes: 1419
+CLIENT: Received server certificate bytes: 1419
+DEBUG: vecSize = 1411 remaining = 1411
+CLIENT: Server certificate validation succeeded.
+CLIENT: Sending challenge bytes: 40
+CLIENT: challengeBuffer size = 40
+CLIENT: first 8 bytes = 20 0 0 0 0 0 0 0 
+CLIENT: Received server signature bytes: 264
+DEBUG: vecSize = 256 remaining = 256
+CLIENT: Server proof of possession succeeded.
+nullptr
+[RECV] fd=3 bytes=61
+DEBUG: vecSize = 25 remaining = 41
+[RECV] decrypt succeeded, plaintext bytes=25
+nullptr

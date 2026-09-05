@@ -1,0 +1,55 @@
+services:
+  server:
+    container_name: leaky-server-p3
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    command: sleep infinity
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - ${PHASE_DIR}:/workspace
+
+  client1:
+    container_name: leaky-client1-p3
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    command: sleep infinity
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.11
+    volumes:
+      - ${PHASE_DIR}:/workspace
+
+  client2:
+    container_name: leaky-client2-p3
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    command: sleep infinity
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.12
+    volumes:
+      - ${PHASE_DIR}:/workspace
+
+  mallory:
+    container_name: leaky-mallory-p3
+    build:
+      context: ../..
+      dockerfile: attacks/docker/Dockerfile
+    command: sleep infinity
+    networks:
+      chatnet:
+        ipv4_address: 172.20.0.13
+    volumes:
+      - ${PHASE_DIR}:/workspace
+
+networks:
+  chatnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24

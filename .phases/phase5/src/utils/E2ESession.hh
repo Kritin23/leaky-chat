@@ -186,7 +186,7 @@ class E2ESession {
 
         uint64_t expiry =
             sessTimestamp +
-            std::chrono::duration_cast<std::chrono::system_clock::duration>(10s)
+            std::chrono::duration_cast<std::chrono::system_clock::duration>(60s)
                 .count();
         uint64_t now =
             std::chrono::system_clock::now().time_since_epoch().count();

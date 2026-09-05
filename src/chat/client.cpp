@@ -8,16 +8,22 @@
 #include <thread>
 
 #include "UI.h"
+#include "utils/E2ESession.hh"
 #include "utils/MemBuffer.h"
 #include "utils/Packet.hh"
 
 namespace client_impl {
 bool Client::initiateE2E(const std::string& username) {
-    if (mE2ESessions.contains(username))
-        return false;
-
     auto& session = mE2ESessions[username];
     auto pkt = MessagePacket(username, *session.initiate());
+    pkt.seq = curSeqNo++;
+    bool res = serverSocket.sendPacket(pkt) == 0;
+    return res;
+}
+
+bool Client::refreshE2E(const std::string& username) {
+    auto& session = mE2ESessions[username];
+    auto pkt = MessagePacket(username, *session.refresh());
     pkt.seq = curSeqNo++;
     return serverSocket.sendPacket(pkt) == 0;
 }
@@ -42,9 +48,12 @@ bool Client::handleE2EInit(const MessagePacket& packet) {
 }
 
 void Client::handleE2EAck(const MessagePacket& packet) {
+    std::cerr << "acking\n";
     const std::string& peer = packet.getSender();
-    auto session = mE2ESessions[peer];
+    E2ESession& session = mE2ESessions[peer];
     session.handleAck(packet.getPayload());
+    std::cerr << "acked\n";
+
 }
 
 bool Client::waitUntilAck(SequenceNo seq) {
@@ -96,6 +105,7 @@ std::unique_ptr<Packet> Client::waitForType(PacketType type) {
 }
 
 bool Client::setupE2E(const std::string& uname) {
+    std::cerr << "hi:e2e\n";
     if (!initiateE2E(uname))
         return false;
     std::cerr << "initiated";
@@ -112,8 +122,11 @@ bool Client::setupE2E(const std::string& uname) {
             return false;
         }
     };
+    std::cerr << "here1\n";
     auto pkt = waitForPred(isE2ePkt);
+    std::cerr << "pk1 rcvd\n";
     auto msgPkt = getDerivedPacket<MessagePacket>(std::move(pkt));
+    std::cerr << "downcast\n";
     if (msgPkt->getPayload().type == Payload::Type::__E2E_INIT__) {
         if (handleE2EInit(*msgPkt)) {
             return true;
@@ -127,6 +140,7 @@ bool Client::setupE2E(const std::string& uname) {
         handleE2EAck(*msgPkt);
         return true;
     }
+    std::cerr << "bye\n";
     return false;
 }
 
@@ -149,15 +163,25 @@ bool Client::login(std::string_view username) {
 
 bool Client::connectTo(std::string_view uname) {
     connected = uname;
+    if (mE2ESessions.contains(connected)) {
+        auto session = mE2ESessions[connected];
+        if (session.isStale())
+            refreshE2E(std::string(uname));
+    }
     return true;
 }
 
 SequenceNo Client::send(std::string_view msg) {
+    std::cerr << "here:send\n";
     SequenceNo seq = curSeqNo++;
-    auto session = mE2ESessions[connected];
+    auto& session = mE2ESessions[connected];
+    if (session.isStale()) {
+        refreshE2E(std::string(connected));
+    }
     auto msgPkt = MessagePacket(connected, session.encrypt(msg));
     msgPkt.seq = seq;
     serverSocket.sendPacket(msgPkt);
+    std::cerr << "byeee:send\n";
     return seq;
 }
 
@@ -205,7 +229,7 @@ std::unique_ptr<Packet> Client::poll() {
 
 std::string Client::decryptMessage(const std::unique_ptr<MessagePacket>& pkt) {
     const std::string peer = pkt->getSender();
-    auto session = mE2ESessions[peer];
+    E2ESession& session = mE2ESessions[peer];
     return session.decrypt(pkt->getPayload());
 }
 
@@ -267,6 +291,7 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
                 case ClientRequest::Type::SendMessage: {
                     client.connectTo(request.username);
                     SequenceNo id = client.send(request.message);
+                    std::cout << "sent\n";
                     break;
                 }
 
@@ -306,6 +331,7 @@ void clientLoop(Client& client, UI& ui, std::string host, int port) {
 
         if (!running)
             break;
+
 
         while (auto pkt = client.poll()) {
             if (pkt->mPacketType == PacketType::MESSAGE) {

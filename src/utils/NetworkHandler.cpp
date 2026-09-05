@@ -245,7 +245,7 @@ int NetworkHandler::sendPacket(const Packet& packet) {
     if (!mConnected || mCryptoState != CryptoState::ESTABLISHED) {
         return -1;
     }
-
+    std::cerr << "sending\n";
     MemBuffer buffer(1024);
     packet.serialise(buffer);
 
@@ -260,6 +260,8 @@ int NetworkHandler::sendPacket(const Packet& packet) {
     encryptedBuffer << encrypted.ciphertext;
     encryptedBuffer << encrypted.tag;
 
+    std::cerr << "encrypted\n";
+
     ssize_t bytes_sent =
         send(mSocket, encryptedBuffer.data(), encryptedBuffer.size(), 0);
 
@@ -268,6 +270,8 @@ int NetworkHandler::sendPacket(const Packet& packet) {
         return -1;
     }
     std::cerr << "[SEND] packet to " << mSocket << ", bytes=" << bytes_sent << "\n"; 
+
+    std::cerr << "final\n";
 
     return 0;
 }
